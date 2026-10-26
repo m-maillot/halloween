@@ -7,19 +7,32 @@ Authentification par jeton longue durée (`Authorization: Bearer`). Le jeton n'a
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+import socket
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
 from halloween.config.models import HomeAssistant
-from halloween.drivers.base import HAClient, HAError
+from halloween.drivers.base import (
+    HAAuthError,
+    HABadRequest,
+    HAClient,
+    HAError,
+    HANotFound,
+    HAServerError,
+    HATimeout,
+    HAUnreachable,
+)
 from halloween.log import get_logger
 
 log = get_logger("homeassistant")
 
 TOKEN_ENV = "HALLOWEEN_HA_TOKEN"
+# Après un échec réseau, les appels suivants échouent aussitôt pendant ce délai (voir `_request`).
+DEFAULT_COOLDOWN_S = 10.0
 
 
 @dataclass(frozen=True)
@@ -43,8 +56,14 @@ class HttpHAClient(HAClient):
         token: str,
         timeout_s: float = 5.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        cooldown_s: float = DEFAULT_COOLDOWN_S,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._url = url.rstrip("/")
+        self._timeout_s = timeout_s
+        self._cooldown_s = cooldown_s
+        self._clock = clock
+        self._down_until = 0.0
         self._client = httpx.AsyncClient(
             base_url=self._url + "/",
             headers={"Authorization": f"Bearer {token}"},
@@ -71,17 +90,73 @@ class HttpHAClient(HAClient):
 
     # ------------------------------------------------------------------ requêtes
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    async def _request(
+        self, method: str, path: str, *, guarded: bool = False, **kwargs: Any
+    ) -> httpx.Response:
+        """Envoie la requête et traduit les échecs en erreurs typées (jamais le jeton).
+
+        `guarded` (appels de scénario) : si Home Assistant vient d'être injoignable ou trop lent,
+        l'appel échoue immédiatement pendant `cooldown_s` au lieu d'attendre `timeout_s` à chaque
+        bloc, ce qui décalerait tout le scénario. Les appels explicites (test de connexion,
+        liste d'entités) essaient toujours.
+        """
+        if guarded and self._clock() < self._down_until:
+            remaining = self._down_until - self._clock()
+            raise HAUnreachable(
+                f"Home Assistant indisponible, nouvel essai dans {remaining:.0f} s ({self._url})"
+            )
         try:
             response = await self._client.request(method, path, **kwargs)
-        except httpx.HTTPError as exc:
-            raise HAError(f"Home Assistant : {type(exc).__name__}") from exc
+        except httpx.TimeoutException as exc:
+            self._down_until = self._clock() + self._cooldown_s
+            raise HATimeout(
+                f"Home Assistant n'a pas répondu en {self._timeout_s:g} s ({self._url})"
+            ) from exc
+        except httpx.TransportError as exc:
+            self._down_until = self._clock() + self._cooldown_s
+            raise HAUnreachable(
+                f"Home Assistant injoignable : {self._reason(exc)} ({self._url})"
+            ) from exc
+        self._down_until = 0.0
         if response.status_code >= 400:
-            raise HAError(f"Home Assistant : HTTP {response.status_code} sur {method} {path}")
+            raise self._http_error(response, method, path)
         return response
 
+    @staticmethod
+    def _reason(exc: BaseException) -> str:
+        """Cause lisible d'un échec réseau, lue dans la chaîne d'exceptions (httpx → socket)."""
+        chain: list[BaseException] = []
+        current: BaseException | None = exc
+        while current is not None and current not in chain:
+            chain.append(current)
+            current = current.__cause__ or current.__context__
+        if any(isinstance(e, ConnectionRefusedError) for e in chain):
+            return "connexion refusée"
+        text = " ".join(str(e) for e in chain).lower()
+        if any(isinstance(e, socket.gaierror) for e in chain) or any(
+            marker in text for marker in ("name or service not known", "nodename nor servname")
+        ):
+            return "nom d'hôte introuvable"
+        if "refused" in text:
+            return "connexion refusée"
+        return type(exc).__name__
+
+    @staticmethod
+    def _http_error(response: httpx.Response, method: str, path: str) -> HAError:
+        status = response.status_code
+        where = f"{method} /{path}"
+        if status in (401, 403):
+            return HAAuthError(f"jeton refusé par Home Assistant (HTTP {status})")
+        if status == 404:
+            return HANotFound(f"introuvable : {where} (HTTP 404) - vérifier l'URL et l'entité")
+        if status in (400, 422):
+            return HABadRequest(f"requête refusée par Home Assistant (HTTP {status}) : {where}")
+        if status >= 500:
+            return HAServerError(f"erreur interne de Home Assistant (HTTP {status}) : {where}")
+        return HAError(f"Home Assistant : HTTP {status} sur {where}")
+
     async def call_service(self, domain: str, service: str, data: dict[str, Any]) -> None:
-        await self._request("POST", f"api/services/{domain}/{service}", json=data)
+        await self._request("POST", f"api/services/{domain}/{service}", guarded=True, json=data)
 
     async def check_connection(self) -> str:
         """`GET /api/` ; retourne le message de Home Assistant (« API running. »)."""
@@ -100,10 +175,8 @@ class HttpHAClient(HAClient):
         """État d'une entité, ou `None` si elle n'existe pas."""
         try:
             response = await self._request("GET", f"api/states/{entity_id}")
-        except HAError as exc:
-            if "HTTP 404" in str(exc):
-                return None
-            raise
+        except HANotFound:
+            return None
         return self._entity(response.json())
 
     @staticmethod

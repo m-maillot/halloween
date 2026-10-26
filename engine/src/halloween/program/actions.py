@@ -57,7 +57,10 @@ class DeviceActions(ActionRunner):
             self._on_failure(node, exc)
 
     def _on_failure(self, node: ActionNode, exc: Exception) -> None:
-        log.error("action en échec", extra={"error": str(exc), "on_error": node.on_error})
+        log.error(
+            "action en échec",
+            extra={"error": str(exc), "error_type": type(exc).__name__, "on_error": node.on_error},
+        )
         if node.on_error == "abort":
             raise ActionFailed(f"{node.id} : {exc}") from exc
 

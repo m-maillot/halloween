@@ -222,6 +222,10 @@ Un **run** est une exécution d'un programme ; il contient une tâche asyncio pa
 | Composant inconnu, paramètre non supporté | rejeté à la **validation**, avant tout run |
 | Exception inattendue dans un script | arrêt du **run** concerné (tous ses scripts), reset selon 5.3, issue `failed` ; les autres runs continuent |
 
+Causes distinguées pour Home Assistant (message précis dans le journal et l'interface) : injoignable (hôte introuvable, connexion refusée), délai dépassé (`timeout_s`), jeton refusé (401/403), introuvable (404), requête refusée (400/422), erreur interne (5xx).
+
+**Pause après une panne réseau** : si Home Assistant est injoignable ou trop lent, les appels de scénario suivants échouent aussitôt pendant 10 s au lieu d'attendre `timeout_s` à chaque bloc, pour ne pas décaler tout le scénario. Les appels explicites (test de connexion, liste d'entités) essaient toujours et lèvent la pause en cas de succès. Les erreurs HTTP (jeton, 404, 5xx) ne déclenchent pas de pause.
+
 ### 6.3 Sécurité
 
 - Relais `latched` **OFF** au démarrage, à l'arrêt du service (`SIGTERM`) et sur toute exception non gérée.
