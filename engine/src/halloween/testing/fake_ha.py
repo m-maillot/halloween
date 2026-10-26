@@ -1,14 +1,23 @@
-"""Faux serveur HTTP Home Assistant (stdlib, dans un fil) pour les tests.
+"""Faux serveur HTTP Home Assistant (stdlib, dans un fil) pour les tests et les essais à blanc.
 
 Enregistre chaque requête (méthode, chemin, jeton, corps JSON) et répond comme l'API REST :
 `GET /api/`, `GET /api/states[/<id>]`, `POST /api/services/<domaine>/<service>`.
+
+Lancé seul, il permet d'essayer le moteur sans Home Assistant (par exemple sur le Pi) :
+
+    python -m halloween.testing.fake_ha --port 8123 --token mon-jeton
+
+puis mettre `http://<hôte>:8123` et ce jeton dans la configuration (ou `HALLOWEEN_HA_TOKEN`).
+Les entités et leurs capacités sont des valeurs d'exemple, pas celles de votre installation.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -32,6 +41,7 @@ class FakeHA:
     # (méthode, chemin) -> (statut, corps) pour forcer une réponse
     overrides: dict[tuple[str, str], tuple[int, Any]] = field(default_factory=dict)
     delay_s: float = 0.0
+    on_request: Callable[[Recorded], None] | None = None
     _server: ThreadingHTTPServer | None = None
 
     @property
@@ -43,6 +53,9 @@ class FakeHA:
         return [r for r in self.requests if r.method == "POST" and r.path.startswith(path_prefix)]
 
     def start(self) -> FakeHA:
+        return self.start_on(0, "127.0.0.1")
+
+    def start_on(self, port: int, host: str = "0.0.0.0") -> FakeHA:
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -55,7 +68,10 @@ class FakeHA:
                 body = json.loads(raw) if raw else None
                 header = self.headers.get("Authorization") or ""
                 token = header.removeprefix("Bearer ") if header.startswith("Bearer ") else None
-                outer.requests.append(Recorded(method, self.path, token, body))
+                recorded = Recorded(method, self.path, token, body)
+                outer.requests.append(recorded)
+                if outer.on_request is not None:
+                    outer.on_request(recorded)
                 if outer.delay_s:
                     time.sleep(outer.delay_s)
                 status, payload = outer._route(method, self.path, token)
@@ -72,7 +88,7 @@ class FakeHA:
             def do_POST(self) -> None:
                 self._handle("POST")
 
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._server = ThreadingHTTPServer((host, port), Handler)
         threading.Thread(
             target=self._server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
         ).start()
@@ -100,3 +116,51 @@ class FakeHA:
         if method == "POST" and path.startswith("/api/services/"):
             return 200, []
         return 404, {"message": "404: Not Found"}
+
+
+SAMPLE_STATES: list[dict[str, Any]] = [
+    {
+        "entity_id": "light.bandeau_hue",
+        "state": "off",
+        "attributes": {
+            "friendly_name": "Bandeau Hue",
+            "supported_color_modes": ["color_temp", "xy"],
+            "supported_features": 40,  # TRANSITION (32) + FLASH (8)
+        },
+    },
+    {
+        "entity_id": "light.twinkly_halloween",
+        "state": "off",
+        "attributes": {
+            "friendly_name": "Guirlande Twinkly",
+            "supported_color_modes": ["rgb"],
+            "supported_features": 4,  # EFFECT
+        },
+    },
+    {"entity_id": "switch.prise_salon", "state": "off", "attributes": {"friendly_name": "Prise"}},
+]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Faux Home Assistant pour essais à blanc.")
+    parser.add_argument("--port", type=int, default=8123)
+    parser.add_argument("--token", default=TOKEN)
+    args = parser.parse_args()
+
+    def show(request: Recorded) -> None:
+        refused = "" if request.token == args.token else "  (jeton refusé)"
+        body = json.dumps(request.body, ensure_ascii=False)
+        print(f"{request.method} {request.path} {body}{refused}", flush=True)
+
+    server = FakeHA(token=args.token, states=SAMPLE_STATES, on_request=show)
+    server.start_on(args.port)
+    print(f"Faux Home Assistant sur http://0.0.0.0:{args.port} (jeton : {args.token}).")
+    print("Ctrl+C pour quitter.", flush=True)
+    try:
+        threading.Event().wait()
+    except KeyboardInterrupt:
+        server.stop()
+
+
+if __name__ == "__main__":
+    main()

@@ -28,3 +28,13 @@ make format   # formate le code
 ```
 
 Sur le Raspberry Pi, installer aussi les pilotes GPIO : `uv sync --extra pi`. Si la compilation de `lgpio` échoue, installer le paquet système (`sudo apt install python3-lgpio`) ou ses dépendances de build (`swig`, `python3-dev`) ; la compatibilité GPIO du Pi utilisé est vérifiée à part (issue du lot 2).
+
+## Essayer sans Home Assistant
+
+Un faux serveur Home Assistant (entités d'exemple, journal des requêtes) permet d'essayer le moteur sans installation :
+
+```bash
+uv run python -m halloween.testing.fake_ha --port 8123 --token mon-jeton
+```
+
+Puis, dans `config.json`, `"home_assistant": {"url": "http://localhost:8123", "token": "mon-jeton"}` (ou `HALLOWEEN_HA_TOKEN=mon-jeton`). Les entités et leurs capacités sont des valeurs d'exemple.

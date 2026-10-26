@@ -8,7 +8,6 @@ from pathlib import Path
 import httpx
 import pytest
 
-from fake_ha import TOKEN, FakeHA
 from halloween.config import AppConfig
 from halloween.drivers import (
     FakeButtonDriver,
@@ -25,6 +24,7 @@ from halloween.drivers.homeassistant import HttpHAClient
 from halloween.log import setup_logging
 from halloween.program import Program
 from halloween.program.runs import RunManager
+from halloween.testing.fake_ha import TOKEN, FakeHA
 
 ROOT = Path(__file__).resolve().parents[2]
 

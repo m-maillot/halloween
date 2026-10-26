@@ -1,9 +1,9 @@
 import pytest
 
-from fake_ha import TOKEN, FakeHA
 from halloween.config.models import HomeAssistant
 from halloween.drivers.base import HAClient, HAError
 from halloween.drivers.homeassistant import HttpHAClient
+from halloween.testing.fake_ha import TOKEN, FakeHA
 
 STATES = [
     {
