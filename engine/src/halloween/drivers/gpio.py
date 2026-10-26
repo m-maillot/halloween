@@ -12,8 +12,9 @@ import contextlib
 from collections.abc import Iterable
 from typing import Any
 
-from halloween.config.models import Relay
-from halloween.drivers.base import RelayDriver
+from halloween.config.models import Button, Relay
+from halloween.drivers.base import ButtonDriver, ButtonEvent, ButtonEventKind, RelayDriver
+from halloween.drivers.presses import PressClassifier
 from halloween.log import get_logger
 
 log = get_logger("gpio")
@@ -106,3 +107,74 @@ class GpioRelayDriver(RelayDriver):
             with contextlib.suppress(Exception):
                 device.close()
         self._devices.clear()
+
+
+class GpioButtonDriver(ButtonDriver):
+    """Boutons câblés sur des broches GPIO (appui = niveau bas avec `pull: up`).
+
+    gpiozero appelle ses rappels dans un fil à part : chaque front est transmis à la boucle asyncio
+    (`call_soon_threadsafe`), où `PressClassifier` reconnaît appui court, long ou double.
+    L'anti-rebond (`debounce_ms`) est assuré par gpiozero.
+    """
+
+    def __init__(self, buttons: Iterable[Button], pin_factory: Any = None) -> None:
+        super().__init__()
+        self._buttons = list(buttons)
+        self._pin_factory = pin_factory
+        self._devices: dict[str, Any] = {}
+        self._classifiers: dict[str, PressClassifier] = {}
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    async def start(self) -> None:
+        from gpiozero import Button as GpioButton
+
+        loop = asyncio.get_running_loop()
+        try:
+            for button in self._buttons:
+                classifier = PressClassifier(
+                    lambda kind, button_id=button.id: self._on_event(button_id, kind),
+                    button.long_press_ms / 1000,
+                    button.double_press_ms / 1000,
+                )
+                device = GpioButton(
+                    button.pin,
+                    pull_up=button.pull == "up",
+                    bounce_time=button.debounce_ms / 1000 or None,
+                    pin_factory=self._pin_factory,
+                )
+                device.when_pressed = self._threadsafe(loop, classifier.press)
+                device.when_released = self._threadsafe(loop, classifier.release)
+                self._classifiers[button.id] = classifier
+                self._devices[button.id] = device
+        except BaseException:
+            await self.close()
+            raise
+
+    @staticmethod
+    def _threadsafe(loop: asyncio.AbstractEventLoop, callback: Any) -> Any:
+        def forward() -> None:
+            with contextlib.suppress(RuntimeError):  # boucle déjà fermée à l'arrêt
+                loop.call_soon_threadsafe(callback)
+
+        return forward
+
+    def _on_event(self, button_id: str, kind: ButtonEventKind) -> None:
+        log.info("appui", extra={"button": button_id, "event": kind})
+        task = asyncio.ensure_future(self._emit(ButtonEvent(button_id, kind)))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def close(self) -> None:
+        for device in self._devices.values():
+            device.when_pressed = None
+            device.when_released = None
+            with contextlib.suppress(Exception):
+                device.close()
+        for classifier in self._classifiers.values():
+            classifier.reset()
+        self._devices.clear()
+        self._classifiers.clear()
+        tasks = list(self._tasks)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)

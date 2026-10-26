@@ -121,7 +121,7 @@ class TestCommonFields:
 class TestButton:
     def test_defaults(self):
         b = Button(id="b", name="B", pin=21)
-        assert (b.pull, b.debounce_ms, b.long_press_ms) == ("up", 50, 800)
+        assert (b.pull, b.debounce_ms, b.long_press_ms, b.double_press_ms) == ("up", 50, 800, 400)
 
     def test_invalid_pull(self):
         with pytest.raises(ValidationError):
