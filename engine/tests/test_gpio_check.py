@@ -29,7 +29,7 @@ class Setup:
         self.backend = Backend(
             lambda config: GpioRelayDriver(config.relays, self.factory),
             lambda config: GpioButtonDriver(config.buttons, self.factory),
-            lambda _c, write: DryRunHAClient(write),
+            lambda _c, write, _dry: DryRunHAClient(write),
         )
 
     def check(self, *argv) -> tuple[int, str]:

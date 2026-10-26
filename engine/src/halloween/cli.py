@@ -6,8 +6,9 @@
     halloween-cli relay fantome trigger           # impulsion
     halloween-cli button watch                    # affiche les appuis
     halloween-cli gpio-check [--active]           # compatibilité GPIO du Pi utilisé
+    halloween-cli ha-check [--active]             # Home Assistant : connexion, entités, capacités
     halloween-cli simulate scenario-principal     # timeline sans rien actionner
-    halloween-cli run scenario-principal          # exécution réelle (Home Assistant simulé)
+    halloween-cli run scenario-principal          # exécution réelle [--ha-dry-run]
 
 Le dossier de données (config.json, programs/) vient de `--data-dir`, de `HALLOWEEN_DATA_DIR` ou
 de `/var/lib/halloween`. Codes de sortie : 0 succès, 1 run en échec, 2 erreur d'usage ou de
@@ -34,6 +35,7 @@ from halloween.config.models import AppConfig
 from halloween.config.validation import validate_config
 from halloween.drivers.base import ButtonDriver, ButtonEvent, HAClient, RelayDriver
 from halloween.drivers.dryrun import DryRunHAClient
+from halloween.drivers.homeassistant import TOKEN_ENV, HttpHAClient
 from halloween.issues import errors, warnings
 from halloween.log import setup_logging
 from halloween.program.models import Program
@@ -53,7 +55,8 @@ class Backend:
 
     relays: Callable[[AppConfig], RelayDriver]
     buttons: Callable[[AppConfig], ButtonDriver]
-    ha: Callable[[AppConfig, Callable[[str], None]], HAClient]
+    # (config, écriture de messages, forcer le mode simulé)
+    ha: Callable[[AppConfig, Callable[[str], None], bool], HAClient]
 
 
 def gpio_backend() -> Backend:
@@ -67,7 +70,17 @@ def gpio_backend() -> Backend:
 
         return GpioButtonDriver(config.buttons)
 
-    return Backend(relays, buttons, lambda _config, write: DryRunHAClient(write))
+    def ha(config: AppConfig, write: Callable[[str], None], dry_run: bool) -> HAClient:
+        settings = config.home_assistant
+        if dry_run or settings is None:
+            return DryRunHAClient(write)
+        if not (os.environ.get(TOKEN_ENV) or settings.token):
+            write("Home Assistant : aucun jeton configuré, appels simulés")
+            return DryRunHAClient(write)
+        write(f"Home Assistant : appels réels vers {settings.url}")
+        return HttpHAClient.from_config(settings)
+
+    return Backend(relays, buttons, ha)
 
 
 class CliError(Exception):
@@ -107,9 +120,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("--press-timeout", type=float, default=10.0, help="attente d'un appui (s)")
 
+    ha_check = sub.add_parser(
+        "ha-check", help="vérifier Home Assistant et les capacités des lumières"
+    )
+    ha_check.add_argument(
+        "--active",
+        action="store_true",
+        help="pilote les lumières (couleur, luminosité, transition), mesure la latence, "
+        "puis restaure leur état",
+    )
+    ha_check.add_argument("--pause", type=float, default=1.0, help="pause entre deux essais (s)")
+
     for name, text in (("run", "exécuter un programme"), ("simulate", "simuler un programme")):
         p = sub.add_parser(name, help=text)
         p.add_argument("program_id")
+        if name == "run":
+            p.add_argument(
+                "--ha-dry-run",
+                action="store_true",
+                help="n'envoie rien à Home Assistant (affiche seulement les appels)",
+            )
     return parser
 
 
@@ -209,6 +239,21 @@ async def cmd_gpio_check(args: argparse.Namespace, backend: Backend, out: TextIO
     )
 
 
+async def cmd_ha_check(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
+    from halloween.ha_check import run_ha_check
+
+    _, config = _load(args)
+    if config.home_assistant is None:
+        raise CliError('aucune section "home_assistant" dans config.json')
+    if not (os.environ.get(TOKEN_ENV) or config.home_assistant.token):
+        raise CliError(f"aucun jeton : le renseigner dans config.json ou dans {TOKEN_ENV}")
+    client = HttpHAClient.from_config(config.home_assistant)
+    try:
+        return await run_ha_check(config, client, out, args.active, args.pause)
+    finally:
+        await client.close()
+
+
 async def cmd_button_watch(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
     _, config = _load(args)
     if not config.buttons:
@@ -269,7 +314,7 @@ async def cmd_run(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
 
     relays: RelayDriver = _make(backend.relays, config)
     buttons: ButtonDriver = _make(backend.buttons, config)
-    ha = backend.ha(config, lambda line: print(line, file=out))
+    ha = backend.ha(config, lambda line: print(line, file=out), args.ha_dry_run)
     manager = RunManager(config, relays, ha, buttons, programs)
     try:
         await buttons.start()
@@ -293,6 +338,7 @@ async def cmd_run(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
 COMMANDS: dict[str, Callable[[argparse.Namespace, Backend, TextIO], Awaitable[int]]] = {
     "button": cmd_button_watch,
     "gpio-check": cmd_gpio_check,
+    "ha-check": cmd_ha_check,
     "relay": cmd_relay,
     "run": cmd_run,
     "simulate": cmd_simulate,
