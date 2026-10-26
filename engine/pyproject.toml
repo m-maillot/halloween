@@ -19,6 +19,8 @@ pi = [
 
 [dependency-groups]
 dev = [
+    # gpiozero seul (sans lgpio) suffit aux tests : ils utilisent sa fabrique de broches fictive.
+    "gpiozero>=2.0",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
