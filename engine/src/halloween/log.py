@@ -50,10 +50,12 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        entry.update(_context.get())
+        # Les champs de base ne sont jamais écrasés par le contexte ou les `extra`.
+        for key, value in _context.get().items():
+            entry.setdefault(key, value)
         for key, value in record.__dict__.items():
             if key not in _RESERVED and not key.startswith("_"):
-                entry[key] = value
+                entry.setdefault(key, value)
         if record.exc_info:
             entry["exc"] = self.formatException(record.exc_info)
         return json.dumps(entry, ensure_ascii=False, default=str)

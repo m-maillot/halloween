@@ -56,6 +56,15 @@ def test_extra_fields_and_non_serializable_values(lines):
     assert isinstance(entry["obj"], str)
 
 
+def test_base_fields_cannot_be_overridden(lines):
+    with log_context(level="CONTEXT", logger="ctx"):
+        get_logger("test").warning("m", extra={"ts": "faux"})
+    (entry,) = lines()
+    assert entry["level"] == "WARNING"
+    assert entry["logger"] == "halloween.test"
+    assert entry["ts"] != "faux"
+
+
 def test_exception_is_logged(lines):
     try:
         raise ValueError("boum")
