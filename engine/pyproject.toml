@@ -10,6 +10,9 @@ dependencies = [
     "httpx>=0.27",
 ]
 
+[project.scripts]
+halloween-cli = "halloween.cli:console"
+
 [project.optional-dependencies]
 # Pilotes GPIO, uniquement nécessaires sur le Raspberry Pi
 pi = [
