@@ -3,8 +3,14 @@ from halloween.drivers.base import (
     ButtonEvent,
     ButtonEventKind,
     ButtonHandler,
+    HAAuthError,
+    HABadRequest,
     HAClient,
     HAError,
+    HANotFound,
+    HAServerError,
+    HATimeout,
+    HAUnreachable,
     RelayDriver,
 )
 from halloween.drivers.fakes import (
@@ -25,7 +31,13 @@ __all__ = [
     "FakeHAClient",
     "FakeRelayDriver",
     "HAClient",
+    "HAAuthError",
+    "HABadRequest",
     "HAError",
+    "HANotFound",
+    "HAServerError",
+    "HATimeout",
+    "HAUnreachable",
     "Recorder",
     "RelayDriver",
 ]

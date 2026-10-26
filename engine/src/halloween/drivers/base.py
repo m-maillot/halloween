@@ -73,7 +73,34 @@ class ButtonDriver:
 
 
 class HAError(Exception):
-    """Échec d'un appel à Home Assistant (réseau, authentification, entité inconnue…)."""
+    """Échec d'un appel à Home Assistant (réseau, authentification, entité inconnue…).
+
+    Les sous-classes permettent d'afficher un message précis et d'agir selon la cause.
+    """
+
+
+class HAUnreachable(HAError):
+    """Home Assistant ne répond pas du tout : hôte introuvable, connexion refusée, réseau coupé."""
+
+
+class HATimeout(HAError):
+    """Home Assistant n'a pas répondu dans le délai configuré (`timeout_s`)."""
+
+
+class HAAuthError(HAError):
+    """Jeton refusé (HTTP 401 / 403)."""
+
+
+class HANotFound(HAError):
+    """Service, entité ou chemin inconnu (HTTP 404) : URL incorrecte ou entité supprimée."""
+
+
+class HABadRequest(HAError):
+    """Requête refusée par Home Assistant (HTTP 400 / 422) : paramètre invalide."""
+
+
+class HAServerError(HAError):
+    """Erreur interne de Home Assistant (HTTP 5xx)."""
 
 
 class HAClient(ABC):
