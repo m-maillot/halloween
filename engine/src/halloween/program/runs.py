@@ -207,7 +207,7 @@ class RunManager:
         try:
             if started and run.program.on_end == "reset":
                 await self._reset_components(
-                    [c for c in run.touched if self._owner.get(c) == run.id]
+                    sorted(c for c in run.touched if self._owner.get(c) == run.id)
                 )
         finally:
             for component in [c for c, owner in self._owner.items() if owner == run.id]:
