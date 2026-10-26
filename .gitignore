@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+ui/dist/
+.vite/
+
+# Données d'exécution et secrets (jamais versionnés)
+*.local.json
+.env
+.env.*
+!.env.example
+
+# Éditeur / système
+.idea/
+.vscode/
+.DS_Store
