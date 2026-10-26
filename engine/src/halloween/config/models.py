@@ -109,6 +109,8 @@ class HomeAssistant(Model):
     url: str
     # Le jeton n'apparaît jamais dans repr() (donc ni dans les logs ni dans les traces).
     token: str = Field(default="", repr=False)
+    # Délai maximal d'un appel à Home Assistant.
+    timeout_s: Annotated[float, Field(gt=0, le=60)] = 5.0
 
     @field_validator("url")
     @classmethod
