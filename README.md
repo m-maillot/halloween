@@ -13,7 +13,7 @@ Deux parties :
 - [Spec 2 — Interface](docs/spec-2-interface.md)
 - [Plan d'implémentation](docs/plan-implementation.md)
 
-Le suivi se fait par **jalons** (un par phase du plan) et **issues** : voir l'onglet *Milestones* du dépôt.
+Le suivi se fait par **jalons** (un par phase du plan) et **issues** : voir l'onglet *Milestones* du dépôt. Le backlog est défini dans [`scripts/create-backlog.py`](scripts/create-backlog.py) (labels, jalons, issues ; `--dry-run` pour prévisualiser).
 
 ## Statut
 
