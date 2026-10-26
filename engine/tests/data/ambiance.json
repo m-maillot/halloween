@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "ambiance-du-soir",
+  "name": "Ambiance du soir",
+  "on_end": "keep",
+  "scripts": [
+    {
+      "id": "s1",
+      "root": {
+        "id": "a1", "type": "repeat", "forever": true,
+        "child": {
+          "id": "a2", "type": "sequence", "children": [
+            { "id": "a3", "type": "light", "target": "guirlande", "state": "on", "brightness": 150, "fire_and_forget": true },
+            { "id": "a4", "type": "wait", "min": 0.2, "max": 1 },
+            { "id": "a5", "type": "if",
+              "condition": { "type": "random", "probability": 0.3 },
+              "then": { "id": "a6", "type": "light", "target": "guirlande", "state": "off", "on_error": "abort" },
+              "else": { "id": "a7", "type": "log", "message": "pas d'extinction" } },
+            { "id": "a8", "type": "random_choice", "choices": [
+              { "weight": 3, "child": { "id": "a9", "type": "wait", "seconds": 1 } },
+              { "child": { "id": "a10", "type": "call", "program_id": "apparition-fantome" } }
+            ] },
+            { "id": "a11", "type": "wait_until", "condition": { "type": "button", "id": "bouton_principal", "event": "short" }, "timeout_s": 30 },
+            { "id": "a12", "type": "if", "condition": { "type": "relay_is", "id": "orage", "state": "on" },
+              "then": { "id": "a13", "type": "switch", "target": "prise", "state": "off" } },
+            { "id": "a14", "type": "relay", "target": "robot", "action": "trigger", "wait_for_end": true }
+          ]
+        }
+      }
+    },
+    { "id": "s2", "hat": { "type": "start" }, "root": { "id": "b1", "type": "log", "message": "second script" } }
+  ]
+}
