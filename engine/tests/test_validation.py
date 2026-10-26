@@ -323,3 +323,42 @@ def test_pydantic_error_outside_a_block_has_no_node_id():
         Program.model_validate(raw)
     (issue,) = issues_from_validation_error(exc.value, raw)
     assert issue.node_id is None and "name" in issue.message
+
+
+# ------------------------------------------------------------------------------- état de repos
+
+
+def test_rest_state_in_example_is_valid(config):
+    assert validate_config(config) == []
+    assert config.rest_state["bandeau"].rgb_color == (255, 120, 0)
+
+
+def test_rest_state_must_reference_a_light_or_switch(config):
+    raw = config.model_dump(mode="json")
+    raw["rest_state"]["fantome"] = {
+        "state": "off"
+    }  # un relais n'a pas d'état de repos configurable
+    raw["rest_state"]["nope"] = {"state": "off"}
+    issues = validate_config(AppConfig.model_validate(raw))
+    assert {(i.code, i.component_id) for i in issues} == {
+        ("rest_state_unknown", "fantome"),
+        ("rest_state_unknown", "nope"),
+    }
+
+
+def test_rest_state_parameters_must_be_supported(config):
+    raw = config.model_dump(mode="json")
+    raw["rest_state"]["guirlande"] = {"state": "on", "rgb_color": [1, 2, 3], "transition": 1}
+    raw["rest_state"]["prise"] = {"state": "on", "brightness": 10}
+    issues = validate_config(AppConfig.model_validate(raw))
+    assert [(i.code, i.component_id) for i in issues] == [
+        ("rest_state_parameter", "guirlande"),
+        ("rest_state_parameter", "guirlande"),
+        ("rest_state_parameter", "prise"),
+    ]
+
+
+def test_rest_state_off_ignores_parameters(config):
+    raw = config.model_dump(mode="json")
+    raw["rest_state"]["guirlande"] = {"state": "off", "rgb_color": [1, 2, 3]}
+    assert validate_config(AppConfig.model_validate(raw)) == []

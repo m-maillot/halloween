@@ -47,6 +47,39 @@ def validate_config(config: AppConfig) -> list[Issue]:
                     )
                 )
 
+    # L'état de repos ne concerne que des lumières et des interrupteurs existants.
+    lights = {light.id: light for light in config.lights}
+    switches = {switch.id for switch in config.switches}
+    for component_id, rest in config.rest_state.items():
+        light = lights.get(component_id)
+        if light is None and component_id not in switches:
+            issues.append(
+                Issue(
+                    "error",
+                    "rest_state_unknown",
+                    f"état de repos défini pour `{component_id}`, qui n'est pas une lumière "
+                    "ni un interrupteur",
+                    component_id=component_id,
+                )
+            )
+            continue
+        if rest.state == "off":
+            continue
+        for field, supported, label in (
+            ("rgb_color", light is not None and light.supports_color, "la couleur"),
+            ("brightness", light is not None and light.supports_brightness, "la luminosité"),
+            ("transition", light is not None and light.supports_transition, "la transition"),
+        ):
+            if getattr(rest, field) is not None and not supported:
+                issues.append(
+                    Issue(
+                        "error",
+                        "rest_state_parameter",
+                        f"`{component_id}` ne gère pas {label} : retirer ce paramètre du repos",
+                        component_id=component_id,
+                    )
+                )
+
     # Entités Home Assistant en double : probablement une erreur de copier-coller.
     by_entity: dict[str, list[str]] = defaultdict(list)
     for light in config.lights:
