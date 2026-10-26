@@ -126,7 +126,7 @@ Puis pour de vrai :
 uv run halloween-cli run scenario-principal
 ```
 
-> Pour l'instant **Home Assistant est simulé** : les commandes du bandeau et de la guirlande sont seulement affichées (`[Home Assistant simulé] …`), pas envoyées. Les relais, eux, sont réels. L'intégration réelle arrive au lot 3.
+> Tant qu'aucun jeton Home Assistant n'est configuré (ou avec `--ha-dry-run`), **Home Assistant est simulé** : les commandes du bandeau et de la guirlande sont seulement affichées (`[Home Assistant simulé] …`). Les relais, eux, sont réels. Pour de vrais appels, suivre [test-home-assistant.md](test-home-assistant.md).
 
 - [ ] Les relais s'enclenchent aux bons moments (≈ 17 s au total) puis tout revient au repos à la fin.
 - [ ] **Ctrl+C en plein scénario** : tous les relais retombent immédiatement et la commande se termine.

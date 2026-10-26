@@ -49,7 +49,7 @@ class Env:
         self.backend = Backend(
             relays,
             lambda config: ScriptedButtons(b.id for b in config.buttons),
-            lambda _config, write: DryRunHAClient(write),
+            lambda _config, write, _dry: DryRunHAClient(write),
         )
 
     def program(self, id_: str, *children: dict, **kw) -> None:
@@ -197,7 +197,7 @@ def test_run_reports_failed_outcome_with_exit_code_1(env):
                 raise RuntimeError("HA HS")
             await super().call_service(domain, service, data)
 
-    env.backend.ha = lambda _config, write: Broken(write)
+    env.backend.ha = lambda _config, write, _dry: Broken(write)
     code, out = env.cli("run", "boom")
     assert code == 1 and "failed" in out
 
