@@ -41,7 +41,7 @@ def validate_program(
     config: AppConfig,
     programs: Mapping[str, Program] | None = None,
 ) -> list[Issue]:
-    """`programs` : les autres programmes enregistrés (sans lui, les `call` ne sont pas vérifiés)."""
+    """`programs` : autres programmes enregistrés ; sans eux, les `call` ne sont pas vérifiés."""
     issues: list[Issue] = []
     relays = {r.id: r for r in config.relays}
     lights = {light.id: light for light in config.lights}
