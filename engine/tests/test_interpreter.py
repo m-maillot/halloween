@@ -163,6 +163,30 @@ def test_error_in_one_branch_cancels_the_others_and_propagates():
         execute(program(par), fail_on="boom")
 
 
+def test_simultaneous_branch_failures_leave_no_unretrieved_exception():
+    import gc
+
+    unhandled = []
+    par = {"id": "par", "type": "parallel", "children": [act("boom1"), act("boom2")]}
+
+    class FailAll(Recording):
+        async def execute(self, node):
+            raise RuntimeError(node.id)
+
+    async def main():
+        asyncio.get_running_loop().set_exception_handler(lambda _loop, ctx: unhandled.append(ctx))
+        run = Run()
+        conditions = Conditions(run.relays, run.buttons)
+        ctx = RunContext("r", FailAll(), conditions)
+        with pytest.raises(RuntimeError):
+            await Interpreter(ctx).run_program(program(par))
+        conditions.close()
+        gc.collect()
+
+    run_virtual(main)
+    assert unhandled == []
+
+
 def test_scripts_run_in_parallel():
     run = execute(program(seq("a", wait("w1", 5), act("x")), seq("b", wait("w2", 2), act("y"))))
     assert run.times == {"y": 2, "x": 5}

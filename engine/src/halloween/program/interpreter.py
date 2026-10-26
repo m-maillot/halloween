@@ -178,8 +178,11 @@ async def _wait_branches(coros: list[Coroutine[Any, Any, None]], when: str) -> N
     tasks = [asyncio.ensure_future(c) for c in coros]
     try:
         done, _ = await asyncio.wait(tasks, return_when=when)
-        for task in done:
-            task.result()  # relance l'exception éventuelle
+        # On lit l'exception de chaque branche terminée (sinon asyncio signale « jamais récupérée »)
+        # puis on relance la première.
+        failures = [t.exception() for t in done if not t.cancelled() and t.exception() is not None]
+        if failures:
+            raise failures[0]
     finally:
         pending = [t for t in tasks if not t.done()]
         for task in pending:
