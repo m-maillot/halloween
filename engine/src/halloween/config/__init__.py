@@ -6,6 +6,7 @@ from halloween.config.models import (
     Light,
     Relay,
     RelayMode,
+    RestState,
     Switch,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "Light",
     "Relay",
     "RelayMode",
+    "RestState",
     "Switch",
 ]

@@ -16,5 +16,9 @@
     { "id": "bandeau", "name": "Bandeau Hue", "image": "builtin:led-strip", "entity_id": "light.bandeau_hue", "supports_color": true, "supports_brightness": true, "supports_transition": true },
     { "id": "guirlande", "name": "Guirlande Twinkly", "image": "builtin:star", "entity_id": "light.twinkly_halloween", "supports_color": false, "supports_brightness": true, "supports_transition": false }
   ],
-  "switches": []
+  "switches": [],
+  "rest_state": {
+    "bandeau": { "state": "on", "rgb_color": [255, 120, 0], "brightness": 60, "transition": 2 },
+    "guirlande": { "state": "on", "brightness": 150 }
+  }
 }

@@ -118,9 +118,24 @@ class HomeAssistant(Model):
         return value
 
 
+Channel = Annotated[int, Field(ge=0, le=255)]
+
+
+class RestState(Model):
+    """État nominal d'une lumière ou d'un interrupteur, appliqué au repos (fin de run, arrêt)."""
+
+    state: Literal["on", "off"]
+    rgb_color: tuple[Channel, Channel, Channel] | None = None
+    brightness: Channel | None = None
+    transition: Annotated[float, Field(ge=0)] | None = None
+
+
 class AppConfig(Model):
     home_assistant: HomeAssistant | None = None
     relays: list[Relay] = Field(default_factory=list)
     buttons: list[Button] = Field(default_factory=list)
     lights: list[Light] = Field(default_factory=list)
     switches: list[Switch] = Field(default_factory=list)
+    # Par id de lumière ou d'interrupteur. Les relais maintenus reposent toujours éteints ; les
+    # composants absents d'ici ne sont pas touchés au repos.
+    rest_state: dict[Slug, RestState] = Field(default_factory=dict)
