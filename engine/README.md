@@ -16,3 +16,15 @@ src/halloween/
   cli.py      halloween-cli
 tests/
 ```
+
+## Développement
+
+Prérequis : Python 3.11+ et [uv](https://docs.astral.sh/uv/).
+
+```bash
+make test     # lance les tests (depuis la racine du dépôt)
+make check    # lint + tests
+make format   # formate le code
+```
+
+Sur le Raspberry Pi, installer aussi les pilotes GPIO : `uv sync --extra pi`. Si la compilation de `lgpio` échoue, installer le paquet système (`sudo apt install python3-lgpio`) ou ses dépendances de build (`swig`, `python3-dev`) ; la compatibilité GPIO du Pi utilisé est vérifiée à part (issue du lot 2).
