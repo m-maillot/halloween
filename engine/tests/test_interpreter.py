@@ -16,7 +16,7 @@ from halloween.program.interpreter import (
     NodeEvent,
     RunContext,
 )
-from halloween.program.virtual import SimulationDeadlock, run_virtual
+from halloween.program.virtual import SimulationDeadlock, SimulationHorizon, run_virtual
 
 
 class Recording(ActionRunner):
@@ -107,6 +107,21 @@ def test_virtual_time_is_instant_and_exact():
         return loop.time()
 
     assert run_virtual(main) == 3600
+
+
+def test_horizon_stops_virtual_time_at_the_limit():
+    seen = []
+
+    async def main():
+        loop = asyncio.get_running_loop()
+        try:
+            await asyncio.sleep(20)
+        finally:
+            seen.append(loop.time())
+
+    with pytest.raises(SimulationHorizon):
+        run_virtual(main, horizon_s=10)
+    assert seen == [10]  # le temps virtuel ne dépasse jamais la limite
 
 
 def test_deadlock_is_reported_instead_of_hanging():
