@@ -1,8 +1,7 @@
 """Garde-fous sur la configuration d'exemple (`deploy/config.example.json`).
 
-Le modèle Pydantic de la configuration arrive avec le lot 1 (issue « Modèles Pydantic des
-composants ») ; il validera alors ce même fichier. D'ici là, ces tests vérifient la structure
-et les valeurs de l'installation réelle.
+Le fichier est validé par les modèles dans `test_config_models.py` ; ces tests vérifient en plus
+les valeurs de l'installation réelle.
 """
 
 import json
