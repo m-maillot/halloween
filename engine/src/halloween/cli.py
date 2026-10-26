@@ -5,6 +5,7 @@
     halloween-cli relay fantome off
     halloween-cli relay fantome trigger           # impulsion
     halloween-cli button watch                    # affiche les appuis
+    halloween-cli gpio-check [--active]           # compatibilité GPIO du Pi utilisé
     halloween-cli simulate scenario-principal     # timeline sans rien actionner
     halloween-cli run scenario-principal          # exécution réelle (Home Assistant simulé)
 
@@ -97,6 +98,15 @@ def build_parser() -> argparse.ArgumentParser:
     button.add_argument("action", choices=["watch"])
     button.add_argument("--for", dest="seconds", type=float, help="s'arrêter après N secondes")
 
+    check = sub.add_parser("gpio-check", help="vérifier la compatibilité GPIO du Raspberry Pi")
+    check.add_argument(
+        "--active",
+        action="store_true",
+        help="fait basculer chaque relais (ils vont cliquer : débrancher les charges) "
+        "et attend un appui sur chaque bouton",
+    )
+    check.add_argument("--press-timeout", type=float, default=10.0, help="attente d'un appui (s)")
+
     for name, text in (("run", "exécuter un programme"), ("simulate", "simuler un programme")):
         p = sub.add_parser(name, help=text)
         p.add_argument("program_id")
@@ -185,6 +195,20 @@ async def cmd_relay(args: argparse.Namespace, backend: Backend, out: TextIO) -> 
     return EXIT_OK
 
 
+async def cmd_gpio_check(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
+    from halloween.gpio_check import run_check
+
+    _, config = _load(args)
+    return await run_check(
+        config,
+        lambda c: _make(backend.relays, c),
+        lambda c: _make(backend.buttons, c),
+        out,
+        active=args.active,
+        press_timeout_s=args.press_timeout,
+    )
+
+
 async def cmd_button_watch(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
     _, config = _load(args)
     if not config.buttons:
@@ -268,6 +292,7 @@ async def cmd_run(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
 
 COMMANDS: dict[str, Callable[[argparse.Namespace, Backend, TextIO], Awaitable[int]]] = {
     "button": cmd_button_watch,
+    "gpio-check": cmd_gpio_check,
     "relay": cmd_relay,
     "run": cmd_run,
     "simulate": cmd_simulate,
