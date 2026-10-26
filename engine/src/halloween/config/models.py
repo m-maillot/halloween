@@ -91,6 +91,7 @@ class Button(Component):
     pull: Literal["up", "down"] = "up"
     debounce_ms: Annotated[int, Field(ge=0, le=1_000)] = 50
     long_press_ms: Annotated[int, Field(ge=100, le=10_000)] = 800
+    double_press_ms: Annotated[int, Field(ge=100, le=2_000)] = 400
 
 
 class Light(Component):

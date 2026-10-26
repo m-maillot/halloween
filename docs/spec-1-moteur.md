@@ -96,6 +96,9 @@ Les quatre sont actuellement en `latched` : l'objet est actif tant que le relais
 | `pull` | `up` (défaut, bouton vers GND) ou `down` |
 | `debounce_ms` | anti-rebond, défaut 50 |
 | `long_press_ms` | seuil d'appui long, défaut 800 |
+| `double_press_ms` | délai maximal entre deux appuis pour un appui double, défaut 400 (voir ci-dessous) |
+
+Reconnaissance des appuis : **long** dès que le bouton reste enfoncé `long_press_ms` (sans attendre le relâchement) ; **double** si un second appui suit un appui court dans les `double_press_ms` ; **court** sinon. Conséquence : un appui court n'est confirmé qu'après `double_press_ms` (400 ms par défaut), le temps de s'assurer qu'il n'y a pas de second appui.
 
 Configuration initiale : `bouton_principal`, pin 21. L'utilisateur peut en ajouter d'autres. Un bouton **émet des événements** (`short`, `long`, `double`) ; ce qu'ils déclenchent est défini par les déclencheurs (section 7).
 
