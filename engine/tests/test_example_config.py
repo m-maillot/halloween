@@ -50,3 +50,18 @@ def test_lights_declare_their_capabilities(config):
 
 def test_example_contains_no_secret(config):
     assert config["home_assistant"]["token"] == ""
+
+
+def test_example_program_is_valid_against_the_example_config():
+    from halloween.config import AppConfig
+    from halloween.config.validation import validate_config
+    from halloween.issues import errors
+    from halloween.program import Program
+    from halloween.program.validation import validate_program
+
+    config = AppConfig.model_validate(json.loads(EXAMPLE.read_text(encoding="utf-8")))
+    program_file = EXAMPLE.parent / "programs-example" / "scenario-principal.json"
+    program = Program.model_validate(json.loads(program_file.read_text(encoding="utf-8")))
+    assert program.id == program_file.stem
+    assert errors(validate_config(config)) == []
+    assert errors(validate_program(program, config)) == []
