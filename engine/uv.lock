@@ -119,6 +119,7 @@ pi = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "gpiozero" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -136,6 +137,7 @@ provides-extras = ["pi"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "gpiozero", specifier = ">=2.0" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.6" },
