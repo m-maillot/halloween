@@ -1,0 +1,20 @@
+{
+  "home_assistant": {
+    "url": "http://homeassistant.local:8123",
+    "token": ""
+  },
+  "relays": [
+    { "id": "fantome", "name": "Fantôme", "image": "builtin:ghost", "pin": 18, "mode": "latched", "active_low": false },
+    { "id": "squelette", "name": "Squelette", "image": "builtin:skull", "pin": 17, "mode": "latched", "active_low": false },
+    { "id": "epouvantail", "name": "Épouvantail", "image": "builtin:scarecrow", "pin": 27, "mode": "latched", "active_low": false },
+    { "id": "orage", "name": "Orage", "image": "builtin:lightning", "pin": 22, "mode": "latched", "active_low": false }
+  ],
+  "buttons": [
+    { "id": "bouton_principal", "name": "Bouton d'entrée", "image": "builtin:button", "pin": 21, "pull": "up" }
+  ],
+  "lights": [
+    { "id": "bandeau", "name": "Bandeau Hue", "image": "builtin:led-strip", "entity_id": "light.bandeau_hue", "supports_color": true, "supports_brightness": true, "supports_transition": true },
+    { "id": "guirlande", "name": "Guirlande Twinkly", "image": "builtin:star", "entity_id": "light.twinkly_halloween", "supports_color": false, "supports_brightness": true, "supports_transition": false }
+  ],
+  "switches": []
+}
