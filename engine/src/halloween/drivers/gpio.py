@@ -68,6 +68,16 @@ class GpioRelayDriver(RelayDriver):
     def is_on(self, relay_id: str) -> bool:
         return bool(self._device(relay_id).value)
 
+    def pin_level(self, relay_id: str) -> bool:
+        """Niveau électrique lu sur la broche (True = haut) : vérifie câblage et `active_low`."""
+        return bool(self._device(relay_id).pin.state)
+
+    @property
+    def pin_factory_name(self) -> str:
+        """Nom de la bibliothèque de broches utilisée (ex. `LGPIOFactory`)."""
+        device = next(iter(self._devices.values()), None)
+        return type(device.pin_factory).__name__ if device is not None else "aucune broche"
+
     async def all_off(self) -> None:
         for relay_id in self._devices:
             self._cancel_watchdog(relay_id)
