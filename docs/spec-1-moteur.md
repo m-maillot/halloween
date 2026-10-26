@@ -105,11 +105,13 @@ Configuration initiale : `bouton_principal`, pin 21. L'utilisateur peut en ajout
 ### 4.3 Home Assistant (connexion)
 
 ```json
-{ "url": "http://homeassistant.local:8123", "token": "<jeton longue durée>" }
+{ "url": "http://homeassistant.local:8123", "token": "<jeton longue durée>", "timeout_s": 5 }
 ```
 
 - Le jeton est stocké côté Pi (fichier en permissions 600), **jamais renvoyé en clair** par l'API (masqué).
 - Test de connexion à la saisie (`GET /api/`), état affiché en permanence.
+- `timeout_s` (défaut 5 s) : délai maximal d'un appel ; au-delà l'action échoue (et le run continue par défaut, §6.2).
+- La variable d'environnement `HALLOWEEN_HA_TOKEN`, si elle est définie, remplace le jeton du fichier (utile en ligne de commande et pour ne pas écrire le jeton sur disque).
 
 ### 4.4 Lights HA
 
