@@ -121,7 +121,7 @@ def test_horizon_stops_virtual_time_at_the_limit():
 
     with pytest.raises(SimulationHorizon):
         run_virtual(main, horizon_s=10)
-    assert seen == [10] or seen == []  # le temps virtuel ne dépasse jamais la limite
+    assert seen == [10]  # le temps virtuel ne dépasse jamais la limite
 
 
 def test_deadlock_is_reported_instead_of_hanging():
