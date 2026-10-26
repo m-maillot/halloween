@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "id": "scenario-principal",
+  "name": "Scénario principal",
+  "max_duration_s": 90,
+  "on_end": "reset",
+  "show": true,
+  "show_order": 1,
+  "scripts": [
+    {
+      "id": "s1",
+      "hat": { "type": "start" },
+      "root": {
+        "id": "n1", "type": "sequence", "children": [
+          { "id": "n2", "type": "light", "target": "bandeau", "state": "on", "rgb_color": [255, 0, 0], "brightness": 40, "transition": 2 },
+          { "id": "n3", "type": "wait", "seconds": 3 },
+          { "id": "n4", "type": "parallel", "children": [
+            { "id": "n5", "type": "relay", "target": "orage", "state": "on" },
+            { "id": "n6", "type": "relay", "target": "fantome", "state": "on" }
+          ] },
+          { "id": "n7", "type": "wait", "seconds": 8 },
+          { "id": "n7b", "type": "relay", "target": "fantome", "state": "off" },
+          { "id": "n7c", "type": "relay", "target": "orage", "state": "off" },
+          { "id": "n8", "type": "relay", "target": "squelette", "state": "on" },
+          { "id": "n8b", "type": "wait", "seconds": 6 },
+          { "id": "n8c", "type": "relay", "target": "squelette", "state": "off" },
+          { "id": "n9", "type": "relay", "target": "epouvantail", "state": "on" }
+        ]
+      }
+    }
+  ]
+}
