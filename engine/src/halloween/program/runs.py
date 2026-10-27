@@ -121,6 +121,11 @@ class RunManager:
         self._runs: dict[str, Run] = {}
         self._owner: dict[str, str] = {}
 
+    def update_config(self, config: AppConfig) -> None:
+        """Adopte une configuration qui ne change ni broches, ni modes, ni entités (repos, noms)."""
+        self._config = config
+        self.actions.update_config(config)
+
     # ------------------------------------------------------------------ consultation
 
     @property

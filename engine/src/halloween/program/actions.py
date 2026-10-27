@@ -36,6 +36,9 @@ class DeviceActions(ActionRunner):
         self._busy_until: dict[str, float] = {}
         self._background: set[asyncio.Task[None]] = set()
 
+    def update_config(self, config: AppConfig) -> None:
+        self._config = config
+
     async def aclose(self) -> None:
         """Annule les appels en tâche de fond encore en cours."""
         tasks = list(self._background)

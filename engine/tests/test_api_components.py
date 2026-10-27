@@ -443,3 +443,35 @@ def test_component_routes_need_the_token(pi):
             == 401
         )
     assert AUTH["Authorization"].startswith("Bearer")
+
+
+# ------------------------------------------------------------------ état de repos
+
+
+def test_rest_state_read_and_replace_without_interrupting_runs(client, pi):
+    pi.program("long", relay("a", "fantome"), wait("w", 600), on_end="keep")
+    call(client, engine_of(client).apply_config, engine_of(client).config)
+    run = start_run(client, "long")
+    assert client.get("/api/config/rest-state").json()["rest_state"]["bandeau"]["brightness"] == 60
+
+    new = {"bandeau": {"state": "on", "rgb_color": [0, 0, 255], "brightness": 10}}
+    response = client.put("/api/config/rest-state", json={"rest_state": new})
+    assert response.status_code == 200 and run.state == "running"
+    assert saved_config(pi)["rest_state"]["bandeau"]["rgb_color"] == [0, 0, 255]
+    assert "guirlande" not in saved_config(pi)["rest_state"]
+
+    call(client, engine_of(client).manager.stop_all)  # l'arrêt applique le NOUVEAU repos
+    assert pi.ha.calls[-1] == (
+        "light",
+        "turn_on",
+        {"entity_id": "light.bandeau_hue", "rgb_color": [0, 0, 255], "brightness": 10},
+    )
+
+
+def test_rest_state_is_validated(client):
+    for bad in (
+        {"fantome": {"state": "off"}},  # un relais n'a pas d'état de repos configurable
+        {"guirlande": {"state": "on", "rgb_color": [1, 2, 3]}},  # couleur non supportée
+    ):
+        response = client.put("/api/config/rest-state", json={"rest_state": bad})
+        assert response.status_code == 422 and response.json()["detail"]["issues"]

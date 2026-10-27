@@ -151,6 +151,7 @@ def usages(engine: Engine, component_id: str) -> list[str]:
 
 def _strip_cosmetics(config: AppConfig) -> dict:
     data = config.model_dump(mode="json")
+    data.pop("rest_state", None)  # le repos se lit à l'usage : pas besoin de reconstruire
     for kind in KINDS:
         for component in data[kind]:
             component.pop("name", None)
@@ -159,7 +160,7 @@ def _strip_cosmetics(config: AppConfig) -> dict:
 
 
 def is_structural(old: AppConfig, new: AppConfig) -> bool:
-    """Vrai si le changement touche autre chose que des noms et des images."""
+    """Vrai si le changement touche autre chose que noms, images et état de repos."""
     return _strip_cosmetics(old) != _strip_cosmetics(new)
 
 
@@ -398,3 +399,29 @@ async def test_component(
         raise api_error(502, str(exc)) from exc
     await asyncio.sleep(0)
     return TestResult(message=f"{component.name} : {body.action}")
+
+
+class RestStateBody(BaseModel):
+    rest_state: dict[str, RestState]
+
+
+@router.get("/config/rest-state", response_model=RestStateBody, operation_id="get_rest_state")
+async def get_rest_state(engine: EngineDep) -> RestStateBody:
+    """État de repos de chaque lumière / interrupteur (appliqué en fin de scénario et à l'arrêt)."""
+    return RestStateBody(rest_state=engine.config.rest_state)
+
+
+class RestStateSaved(BaseModel):
+    rest_state: dict[str, RestState]
+    issues: list[schemas.IssueOut] = []
+
+
+@router.put("/config/rest-state", response_model=RestStateSaved, operation_id="put_rest_state")
+async def put_rest_state(body: RestStateBody, engine: EngineDep) -> RestStateSaved:
+    """Remplace l'état de repos ; effet immédiat, aucun scénario n'est interrompu."""
+    async with engine.config_lock:
+        new = engine.config.model_copy(update={"rest_state": body.rest_state})
+        issues = await commit(engine, new, stop_runs=False)
+    return RestStateSaved(
+        rest_state=body.rest_state, issues=[schemas.IssueOut.from_issue(i) for i in issues]
+    )

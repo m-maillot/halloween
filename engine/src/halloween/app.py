@@ -200,9 +200,11 @@ class Engine:
             return await self._build()
 
     def update_cosmetics(self, config: AppConfig) -> None:
-        """Enregistre une configuration qui ne change que noms et images : rien n'est interrompu."""
+        """Enregistre une config qui ne change que noms, images, repos : rien n'est interrompu."""
         self.store.save_config(config)
         self.config = config
+        if self.manager is not None:
+            self.manager.update_config(config)
 
     # ------------------------------------------------------------------ chargement
 
