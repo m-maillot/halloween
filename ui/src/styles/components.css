@@ -157,3 +157,67 @@ button.card {
   display: grid;
   gap: 18px;
 }
+
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: grid;
+  gap: 10px;
+  width: min(420px, calc(100vw - 32px));
+}
+.toast {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+}
+.toast--error {
+  border-color: var(--color-danger-border);
+}
+.toast__body {
+  flex: 1;
+  min-width: 0;
+}
+.toast details {
+  margin-top: 6px;
+  color: var(--color-text-muted);
+}
+.toast summary {
+  cursor: pointer;
+  min-height: 24px;
+}
+.toast ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.toast__close {
+  flex: none;
+  width: var(--target);
+  height: var(--target);
+  margin: -8px -8px 0 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.offline {
+  max-width: 520px;
+  margin: 10vh auto;
+  padding: 28px;
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+.offline p {
+  margin: 0;
+  color: var(--color-text-muted);
+}

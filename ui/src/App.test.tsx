@@ -164,3 +164,52 @@ test("un événement arrivé pendant une relecture en cours déclenche une nouve
   await screen.findByRole("button", { name: "1 scénario en cours" });
   expect(calls.filter((c) => c.path === "/api/status").length).toBeGreaterThanOrEqual(before + 2);
 });
+
+test("moteur injoignable : écran dédié, navigation inerte, STOP désactivé, puis reprise avec Réessayer", async () => {
+  await connect();
+  down = true;
+  act(() => lastSocket().onclose?.());
+  await screen.findByRole("heading", { name: "Moteur injoignable" });
+  expect(screen.getByRole("navigation", { name: "Navigation" })).toHaveAttribute("inert");
+  expect(screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" })).toBeDisabled();
+
+  down = false;
+  await userEvent.click(screen.getByRole("button", { name: "Réessayer" }));
+  await screen.findByText("Moteur connecté");
+  expect(screen.queryByRole("heading", { name: "Moteur injoignable" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" })).toBeEnabled();
+});
+
+test("un échec de STOP affiche une notification lisible avec détails dépliables", async () => {
+  await connect();
+  (fetch as ReturnType<typeof vi.fn>).mockImplementation(async (req: Request) => {
+    const path = new URL(req.url).pathname;
+    if (path === "/api/runs/stop")
+      return Response.json(
+        { detail: { message: "le périphérique ne répond pas", issues: [{ message: "relais fantome bloqué", component_id: "fantome" }] } },
+        { status: 502 },
+      );
+    return Response.json(status);
+  });
+  await userEvent.click(screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" }));
+  const toast = await screen.findByRole("alert");
+  expect(toast).toHaveTextContent("le périphérique ne répond pas");
+  await userEvent.click(within(toast).getByText(/Détails \(1\)/));
+  expect(within(toast).getByText("composant fantome : relais fantome bloqué")).toBeVisible();
+  await userEvent.click(within(toast).getByRole("button", { name: "Fermer la notification" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("la même erreur répétée n'empile pas les notifications", async () => {
+  await connect();
+  (fetch as ReturnType<typeof vi.fn>).mockImplementation(async (req: Request) =>
+    new URL(req.url).pathname === "/api/runs/stop"
+      ? Response.json({ detail: "non" }, { status: 500 })
+      : Response.json(status),
+  );
+  const stop = screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" });
+  await userEvent.click(stop);
+  await userEvent.click(stop);
+  await screen.findAllByRole("alert");
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+});

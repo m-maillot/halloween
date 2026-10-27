@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Lock, LockOpen, Square } from "lucide-react";
 import { api } from "../api/client";
+import { unwrap } from "../api/errors";
+import { useToasts } from "../components/Toasts";
 import { Button, Pill, type Tone } from "../components/ui";
 import { useEngine, type Status } from "../engine/EngineProvider";
 
@@ -15,6 +17,7 @@ function haPill(status: Status | null): { tone: Tone; text: string } {
 
 function RunsPanel({ onClose }: { onClose: () => void }) {
   const { status, refresh } = useEngine();
+  const toasts = useToasts();
   const runs = status?.runs ?? [];
   return (
     <div className="runs-panel" role="dialog" aria-label="Scénarios en cours">
@@ -27,7 +30,11 @@ function RunsPanel({ onClose }: { onClose: () => void }) {
               variant="outline-danger"
               aria-label={`Arrêter ${run.program_id}`}
               onClick={async () => {
-                await api.POST("/api/runs/{run_id}/stop", { params: { path: { run_id: run.run_id } } });
+                try {
+                  await unwrap(api.POST("/api/runs/{run_id}/stop", { params: { path: { run_id: run.run_id } } }));
+                } catch (error) {
+                  toasts.error(error);
+                }
                 await refresh();
               }}
             >
@@ -46,6 +53,7 @@ function RunsPanel({ onClose }: { onClose: () => void }) {
 export function Banner() {
   const { status, connection, refresh } = useEngine();
   const [panel, setPanel] = useState(false);
+  const toasts = useToasts();
   const online = connection === "online";
   const ha = haPill(status);
   const count = status?.runs.length ?? 0;
@@ -83,8 +91,13 @@ export function Banner() {
         <Button
           variant="danger"
           aria-label="Arrêt d'urgence : tout arrêter"
+          disabled={!online}
           onClick={async () => {
-            await api.POST("/api/runs/stop");
+            try {
+              await unwrap(api.POST("/api/runs/stop"));
+            } catch (error) {
+              toasts.error(error);
+            }
             await refresh();
           }}
         >
