@@ -42,15 +42,19 @@ export function ScenarioEditor() {
     },
     [],
   );
+  const loadedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (program && devices && workspace.current) {
+    // Une seule fois par scénario : après un enregistrement, les blocs à l'écran font foi
+    // (recharger effacerait l'historique annuler / rétablir et recentrerait la vue).
+    if (program && devices && workspace.current && loadedFor.current !== id) {
+      loadedFor.current = id;
       loadProgram(workspace.current, program);
       const editor = program.editor as { zoom?: number; scroll?: { x: number; y: number } } | null;
       if (editor?.zoom) workspace.current.setScale(editor.zoom);
       workspace.current.scrollCenter();
     }
     // Le catalogue ne doit pas recharger le programme : seul un changement de programme le fait.
-  }, [program, !devices]);
+  }, [program, id, !devices]);
 
   async function save() {
     const ws = workspace.current;
