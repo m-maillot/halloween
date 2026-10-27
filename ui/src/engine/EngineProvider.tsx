@@ -51,21 +51,32 @@ export function EngineProvider({
   const socket = useRef<ReturnType<typeof createEventSocket> | null>(null);
   const refreshing = useRef<Promise<void> | null>(null);
 
+  const again = useRef(false);
+
   const refresh = useCallback((): Promise<void> => {
-    refreshing.current ??= api
-      .GET("/api/status")
-      .then(({ data }) => {
-        if (data) {
-          setStatus(data);
-          setConnection("online");
-        } else {
-          setConnection("offline"); // réponse d'erreur (503 pendant une reconfiguration, 5xx...)
+    if (refreshing.current) {
+      // Une lecture est déjà en vol, partie avant ce nouvel événement : on en refait une après.
+      again.current = true;
+      return refreshing.current;
+    }
+    const run = async (): Promise<void> => {
+      do {
+        again.current = false;
+        try {
+          const { data } = await api.GET("/api/status");
+          if (data) {
+            setStatus(data);
+            setConnection("online");
+          } else {
+            setConnection("offline"); // réponse d'erreur (503 pendant une reconfiguration, 5xx...)
+          }
+        } catch {
+          setConnection("offline");
         }
-      })
-      .catch(() => setConnection("offline"))
-      .finally(() => {
-        refreshing.current = null;
-      });
+      } while (again.current);
+      refreshing.current = null;
+    };
+    refreshing.current = run();
     return refreshing.current;
   }, []);
 

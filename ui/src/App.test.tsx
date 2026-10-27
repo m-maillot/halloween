@@ -151,3 +151,16 @@ test("un jeton refusé ramène à la saisie", async () => {
   await waitFor(() => expect(screen.getByLabelText("Jeton du moteur")).toBeInTheDocument());
   expect(localStorage.getItem("halloween.token")).toBeNull();
 });
+
+test("un événement arrivé pendant une relecture en cours déclenche une nouvelle relecture", async () => {
+  await connect();
+  const before = calls.filter((c) => c.path === "/api/status").length;
+  status.runs = [{ run_id: "r1", program_id: "scene" }];
+  // Deux événements coup sur coup : la seconde relecture ne doit pas être perdue.
+  act(() => {
+    lastSocket().onmessage?.({ data: JSON.stringify({ type: "run_started", run_id: "r1" }) });
+    lastSocket().onmessage?.({ data: JSON.stringify({ type: "run_ended", run_id: "r0" }) });
+  });
+  await screen.findByRole("button", { name: "1 scénario en cours" });
+  expect(calls.filter((c) => c.path === "/api/status").length).toBeGreaterThanOrEqual(before + 2);
+});
