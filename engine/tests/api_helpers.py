@@ -63,3 +63,17 @@ class Pi:
         )
         self.store.save_program(prog)
         return prog
+
+
+def engine_of(client: TestClient):
+    return client.app.state.engine
+
+
+def call(client: TestClient, func, *args):
+    """Exécute une coroutine dans la boucle du moteur (celle du TestClient)."""
+    return client.portal.call(func, *args)
+
+
+def start_run(client: TestClient, program_id: str, policy: str = "ignore"):
+    engine = engine_of(client)
+    return call(client, engine.manager.start, engine.programs[program_id], policy)

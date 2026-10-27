@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
 from halloween import __version__
-from halloween.api import schemas
+from halloween.api import components, ha, images, schemas
 from halloween.api.auth import make_dependencies
 from halloween.api.deps import EngineDep
 from halloween.api.static import placeholder_response, static_app
@@ -93,6 +93,10 @@ def create_app(
             startup_issues=[schemas.IssueOut.from_issue(i) for i in engine.report.issues],
         )
 
+    api.include_router(components.router)
+    api.include_router(ha.router)
+    api.include_router(images.router)
+    public.include_router(images.public_router)
     app.state.api_router = api
     app.include_router(public)
     app.include_router(api)

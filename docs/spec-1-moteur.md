@@ -290,6 +290,15 @@ Base `http://<pi>:8080/api`, jeton statique `Authorization: Bearer`, réseau loc
 | GET | `/images/{fichier}` | image servie |
 | GET | `/devices` | catalogue complet (tous composants avec capacités), pour construire l'éditeur |
 
+Précisions (implémentation) :
+
+- **Modifier un composant** : un changement de nom ou d'image est appliqué sans rien interrompre ; tout autre changement (broche, mode, entité…, création, suppression, connexion Home Assistant) **reconstruit les pilotes** et arrête les scénarios en cours. S'ils tournent, la requête répond `409` avec leur liste, sauf si `?stop_runs=true` confirme l'arrêt.
+- **Supprimer** un composant utilisé (programme, déclencheur, état de repos) : `409` avec la liste des usages.
+- Corps d'erreur structuré : `detail = {message, issues[{severity, code, message, node_id, component_id}]}` ; les erreurs de forme du corps (champ manquant, valeur hors bornes) gardent le format `detail[{loc, msg}]` de FastAPI. Les réponses de création / modification contiennent aussi les avertissements et les **programmes devenus invalides** par le changement.
+- `POST /images` : corps brut, `Content-Type: image/png|jpeg|webp`, 5 Mo maximum ; l'image est réduite à 512 px, réencodée en WebP (métadonnées EXIF et GPS supprimées) et nommée par son empreinte (`<empreinte>.webp`). `GET /images/{fichier}` est **public** (les balises `<img>` ne peuvent pas envoyer de jeton) ; les noms sont des empreintes non devinables.
+- `GET /ha/entities` renvoie aussi les capacités déduites de chaque lumière (couleur, luminosité, transition) pour pré-remplir le formulaire ; le jeton Home Assistant n'est jamais renvoyé (`token_set`, `token_source`).
+- `POST /components/{type}/{id}/test` : `502` si l'appareil refuse ou ne répond pas, `422` si l'action ne convient pas au composant (mode du relais, paramètre non supporté).
+
 **Programmes et exécution**
 
 | Méthode | Route | Rôle |

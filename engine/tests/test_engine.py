@@ -242,7 +242,7 @@ def test_triggers_work_after_start_and_stop_after_stop(tmp_path):
         await engine.stop()
         await setup.buttons.press("bouton_principal", "short")
         await asyncio.sleep(0.01)
-        assert engine.manager.active == []
+        assert not setup.relays.is_on("fantome")  # plus aucune réaction
 
     run_virtual(main)
 

@@ -65,6 +65,10 @@ class ButtonDriver:
                 # Un abonné défaillant ne doit pas empêcher les autres de recevoir l'appui.
                 log.exception("abonné du bouton en échec", extra={"button": event.button_id})
 
+    async def simulate(self, button_id: str, event: ButtonEventKind) -> None:
+        """Injecte un appui comme s'il venait du bouton (test manuel depuis l'interface)."""
+        await self._emit(ButtonEvent(button_id, event))
+
     async def start(self) -> None:  # noqa: B027 - facultatif
         """Démarre la surveillance des entrées."""
 
