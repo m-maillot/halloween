@@ -1,0 +1,212 @@
+"""Le moteur complet : démarrage, reprise après redémarrage, arrêt propre.
+
+Au démarrage (spec 1 §5.3, §6.3), dans cet ordre :
+
+1. charger et valider la configuration (invalide : on refuse de démarrer, plutôt que de piloter
+   des relais avec une configuration vide ou fausse) ;
+2. créer les pilotes (les sorties sont forcées au repos) et **remettre tout au repos** : relais
+   éteints, lumières et interrupteurs à leur état de repos ;
+3. charger les programmes et les déclencheurs ; ceux qui sont invalides sont **écartés et
+   signalés**, les autres fonctionnent ;
+4. seulement alors, activer les boutons et le planning : rien ne peut se déclencher avant que le
+   repos soit appliqué.
+
+Au Pi qui démarre plus vite que Home Assistant, la remise au repos des lumières est retentée en
+tâche de fond pendant quelques minutes (sans toucher un composant déjà repris par un programme).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+
+from pydantic import ValidationError
+
+from halloween.backend import Backend
+from halloween.config.models import AppConfig
+from halloween.config.validation import validate_config
+from halloween.drivers.base import ButtonDriver, HAClient, RelayDriver
+from halloween.issues import Issue, errors
+from halloween.log import get_logger
+from halloween.program.models import Program
+from halloween.program.runs import RunManager
+from halloween.program.validation import validate_program
+from halloween.store import Store
+from halloween.triggers import TriggerEngine, parse_triggers, validate_triggers
+from halloween.triggers.models import Trigger
+
+log = get_logger("engine")
+
+# Délais (s) entre les tentatives de remise au repos des lumières quand Home Assistant n'est pas
+# encore prêt ; le dernier se répète jusqu'à `REST_RETRY_WINDOW_S`.
+REST_RETRY_DELAYS = (15.0, 15.0, 30.0, 30.0, 60.0)
+REST_RETRY_WINDOW_S = 600.0
+
+
+class StartupError(Exception):
+    """Démarrage impossible (configuration illisible ou invalide)."""
+
+    def __init__(self, message: str, issues: list[Issue] | None = None) -> None:
+        super().__init__(message)
+        self.issues = issues or []
+
+
+@dataclass
+class StartupReport:
+    programs: int = 0
+    triggers: int = 0
+    issues: list[Issue] = field(default_factory=list)
+    rest_pending: list[str] = field(default_factory=list)  # remise au repos à retenter
+
+
+class Engine:
+    def __init__(
+        self,
+        store: Store,
+        backend: Backend,
+        write: Callable[[str], None] = print,
+        ha_dry_run: bool = False,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self.store = store
+        self._backend = backend
+        self._write = write
+        self._ha_dry_run = ha_dry_run
+        self._clock = clock
+        self.config: AppConfig = AppConfig()
+        self.programs: dict[str, Program] = {}
+        self.manager: RunManager | None = None
+        self.triggers: TriggerEngine | None = None
+        self._relays: RelayDriver | None = None
+        self._buttons: ButtonDriver | None = None
+        self._ha: HAClient | None = None
+        self._retry: asyncio.Task[None] | None = None
+
+    async def start(self) -> StartupReport:
+        """Démarre le moteur ; en cas d'échec en cours de route, libère ce qui a été acquis."""
+        try:
+            return await self._start()
+        except BaseException:
+            await self.stop()
+            raise
+
+    async def _start(self) -> StartupReport:
+        report = StartupReport()
+        self.store.initialize()
+        self.config = self._load_config()
+
+        # Pilotes : les sorties sont au repos dès leur création ; on le garantit aussitôt.
+        self._relays = self._backend.relays(self.config)
+        self._buttons = self._backend.buttons(self.config)
+        self._ha = self._backend.ha(self.config, self._write, self._ha_dry_run)
+        await self._relays.all_off()
+
+        self._load_programs(report)
+        triggers = self._load_triggers(report)
+        self.manager = RunManager(self.config, self._relays, self._ha, self._buttons, self.programs)
+        self.triggers = TriggerEngine(
+            self.manager, self._buttons, self.programs, triggers, clock=self._clock
+        )
+
+        report.rest_pending = await self.manager.reset_all()
+        if report.rest_pending:
+            self._retry = asyncio.ensure_future(self._retry_rest(list(report.rest_pending)))
+
+        await self._buttons.start()
+        await self.triggers.start()
+
+        report.programs = len(self.programs)
+        report.triggers = len(triggers)
+        for issue in report.issues:
+            log.warning("démarrage : %s", issue.message, extra={"code": issue.code})
+        log.info(
+            "moteur démarré",
+            extra={"programs": report.programs, "triggers": report.triggers},
+        )
+        return report
+
+    async def stop(self) -> None:
+        """Arrêt propre : plus de réaction, tout s'arrête, relais éteints, broches libérées."""
+        if self._retry is not None:
+            self._retry.cancel()
+            await asyncio.gather(self._retry, return_exceptions=True)
+            self._retry = None
+        if self.triggers is not None:
+            await self.triggers.stop()
+        if self.manager is not None:
+            await self.manager.shutdown()
+        if self._buttons is not None:
+            await self._buttons.close()
+        if self._relays is not None:
+            with contextlib.suppress(Exception):
+                await self._relays.all_off()
+            await self._relays.close()
+        if self._ha is not None:
+            await self._ha.close()
+
+    # ------------------------------------------------------------------ chargement
+
+    def _load_config(self) -> AppConfig:
+        try:
+            config = self.store.load_config()
+        except ValidationError as exc:
+            raise StartupError(f"{self.store.config_path} invalide :\n{exc}") from exc
+        if not self.store.config_path.exists():
+            raise StartupError(f"aucune configuration : {self.store.config_path} n'existe pas")
+        problems = errors(validate_config(config))
+        if problems:
+            raise StartupError(
+                "configuration invalide :\n" + "\n".join(f"  - {p.message}" for p in problems),
+                problems,
+            )
+        return config
+
+    def _load_programs(self, report: StartupReport) -> None:
+        loaded = self.store.load_programs()
+        report.issues.extend(loaded.issues)
+        self.programs.clear()
+        for program in loaded.programs.values():
+            problems = errors(validate_program(program, self.config, loaded.programs))
+            if problems:
+                for problem in problems:
+                    report.issues.append(
+                        Issue(
+                            "error",
+                            problem.code,
+                            f"programme `{program.id}` écarté : [{problem.node_id or '-'}] "
+                            f"{problem.message}",
+                            problem.node_id,
+                        )
+                    )
+                continue
+            self.programs[program.id] = program
+
+    def _load_triggers(self, report: StartupReport) -> list[Trigger]:
+        triggers, parse_issues = parse_triggers(self.store.load_triggers())
+        report.issues.extend(parse_issues)
+        problems = validate_triggers(triggers, self.config, set(self.programs))
+        report.issues.extend(problems)
+        rejected = {p.component_id for p in problems if p.severity == "error"}
+        return [t for t in triggers if t.id not in rejected]
+
+    # ------------------------------------------------------------------ Home Assistant en retard
+
+    async def _retry_rest(self, pending: list[str]) -> None:
+        """Retente la remise au repos des composants que Home Assistant n'a pas pu recevoir."""
+        assert self.manager is not None
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + REST_RETRY_WINDOW_S
+        delays = iter(REST_RETRY_DELAYS)
+        delay = REST_RETRY_DELAYS[-1]
+        while pending and loop.time() < deadline:
+            delay = next(delays, delay)
+            await asyncio.sleep(delay)
+            pending = await self.manager.reset_unowned(pending)
+            if not pending:
+                log.info("remise au repos terminée après nouvel essai")
+                return
+        if pending:
+            log.error("remise au repos abandonnée", extra={"components": pending})

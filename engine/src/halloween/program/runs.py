@@ -244,17 +244,24 @@ class RunManager:
         await self.actions.aclose()
         await self.reset_all()
 
-    async def reset_all(self) -> None:
+    async def reset_all(self) -> list[str]:
         """État de repos complet : relais éteints, lumières et interrupteurs à leur repos défini.
 
-        Appelé au démarrage du moteur et au stop global.
+        Appelé au démarrage du moteur et au stop global. Retourne les composants qui n'ont pas pu
+        être remis au repos (ex. Home Assistant pas encore prêt au démarrage du Pi).
         """
         try:
             await self._relays.all_off()
         except Exception:
             log.exception("extinction des relais en échec")
-        await self._reset_components(list(self._config.rest_state))
+        failed = await self._reset_components(list(self._config.rest_state))
         self._owner.clear()
+        return failed
+
+    async def reset_unowned(self, component_ids: list[str]) -> list[str]:
+        """Remet au repos ceux de `component_ids` qu'aucun run ne pilote ; retourne les échecs."""
+        free = [c for c in component_ids if c not in self._owner]
+        return await self._reset_components(free)
 
     async def shutdown(self) -> None:
         await self.stop_all()
@@ -262,12 +269,15 @@ class RunManager:
 
     # ------------------------------------------------------------------ état de repos
 
-    async def _reset_components(self, component_ids: list[str]) -> None:
+    async def _reset_components(self, component_ids: list[str]) -> list[str]:
+        failed: list[str] = []
         for component_id in component_ids:
             try:
                 await self._reset_component(component_id)
             except Exception:  # un appareil en panne ne doit pas empêcher de remettre les autres
                 log.exception("remise au repos en échec", extra={"component": component_id})
+                failed.append(component_id)
+        return failed
 
     async def _reset_component(self, component_id: str) -> None:
         relay = next((r for r in self._config.relays if r.id == component_id), None)
