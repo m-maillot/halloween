@@ -140,3 +140,78 @@ button.pill {
     padding: 10px 16px;
   }
 }
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.muted {
+  color: var(--color-text-muted);
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0 20px;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--target);
+  padding: 0 16px;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-muted);
+  font: 500 15px var(--font-body);
+  cursor: pointer;
+}
+.tab--active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+.tab__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  font-size: 12px;
+  text-align: center;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.component-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.component-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.thumb {
+  flex: none;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+.thumb--icon {
+  padding: 8px;
+  box-sizing: content-box;
+  background: var(--color-surface-2);
+  color: var(--color-accent-text);
+}

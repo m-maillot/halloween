@@ -70,7 +70,7 @@ test("la saisie du jeton ouvre l'interface avec /api/status et le WebSocket auth
   await userEvent.type(screen.getByLabelText("Jeton du moteur"), "secret");
   await userEvent.click(screen.getByRole("button", { name: "Se connecter" }));
   await screen.findByText("Moteur connecté");
-  expect(calls[0]).toMatchObject({ path: "/api/status", auth: "Bearer secret" });
+  expect(calls.find((c) => c.path === "/api/status")).toMatchObject({ auth: "Bearer secret" });
   expect(lastSocket().url).toMatch(/\/api\/events\?token=secret$/);
 });
 
