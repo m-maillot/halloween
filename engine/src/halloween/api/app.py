@@ -16,9 +16,9 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, WebSocket, WebSo
 from fastapi.responses import HTMLResponse
 
 from halloween import __version__
-from halloween.api import components, ha, images, programs, runs, schemas
+from halloween.api import components, ha, images, lock, programs, runs, schemas
 from halloween.api.auth import make_auth
-from halloween.api.deps import EngineDep
+from halloween.api.deps import EngineDep, enforce_lock
 from halloween.api.static import placeholder_response, static_app
 from halloween.app import Engine, StartupError, StartupReport
 from halloween.backend import Backend
@@ -72,7 +72,7 @@ def create_app(
 
     api = APIRouter(
         prefix="/api",
-        dependencies=[Depends(require_token)],
+        dependencies=[Depends(require_token), Depends(enforce_lock)],
         responses={401: {"description": "Jeton d'API manquant ou invalide"}},
     )
 
@@ -84,6 +84,7 @@ def create_app(
         settings = engine.config.home_assistant
         return schemas.Status(
             version=__version__,
+            lock=lock.lock_out(engine),
             runs=[schemas.RunOut(**run.to_json()) for run in engine.manager.active],
             relays={r.id: engine.relays.is_on(r.id) for r in engine.config.relays},
             home_assistant=schemas.HomeAssistantStatus(
@@ -98,6 +99,7 @@ def create_app(
     api.include_router(components.router)
     api.include_router(ha.router)
     api.include_router(images.router)
+    api.include_router(lock.router)
     api.include_router(programs.router)
     api.include_router(runs.router)
     public.include_router(images.public_router)
@@ -124,6 +126,7 @@ def create_app(
                 relays={r.id: engine.relays.is_on(r.id) for r in engine.config.relays}
                 if engine.manager
                 else {},
+                locked=engine.lock.locked,
             )
             await websocket.send_json(snapshot.model_dump(mode="json"))
 

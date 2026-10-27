@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from halloween.api.deps import EngineDep
 from halloween.api.errors import api_error
+from halloween.api.lock import check_code
 from halloween.api.schemas import IssueOut, RunOut
 from halloween.issues import errors, warnings
 from halloween.program.runs import AlreadyRunning, Policy, TooManyRuns
@@ -39,6 +40,8 @@ class StartRun(BaseModel):
     program_id: str
     # Que faire si ce programme tourne déjà : ignorer (409), le redémarrer, ou le mettre en file.
     policy: Policy = "ignore"
+    # Obligatoire quand le moteur est verrouillé ; ne vaut que pour ce lancement.
+    code: str | None = None
 
 
 class StopAll(BaseModel):
@@ -66,14 +69,23 @@ async def list_runs(engine: EngineDep) -> list[RunOut]:
     status_code=201,
     operation_id="start_run",
     responses={
+        401: {"description": "Code incorrect"},
         404: {"description": "Programme inconnu"},
         409: {"description": "Le programme tourne déjà (politique `ignore`)"},
         422: {"description": "Programme écarté : incompatible avec la configuration"},
+        423: {"description": "Verrouillé : le code est obligatoire"},
         429: {"description": "Trop de runs simultanés"},
     },
 )
 async def start_run(body: StartRun, engine: EngineDep) -> RunOut:
-    """Lance un programme. Plusieurs programmes différents peuvent tourner en même temps."""
+    """Lance un programme. Plusieurs programmes différents peuvent tourner en même temps.
+
+    Verrouillé, le `code` est exigé à chaque lancement (il n'ouvre aucune session).
+    """
+    if engine.lock.locked:
+        if body.code is None:
+            raise api_error(423, "verrouillé : le code est obligatoire pour lancer")
+        check_code(engine, body.code)
     program = engine.programs.get(body.program_id)
     if program is None:
         if engine.store.get_program(body.program_id) is None:

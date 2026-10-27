@@ -471,6 +471,19 @@
         "title": "Choice",
         "type": "object"
       },
+      "Code": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "Code",
+        "type": "object"
+      },
       "ComponentChangedEvent": {
         "description": "Un composant a changé d'état (`kind` relay / light / switch), ou le catalogue a été modifié\n(`kind: \"catalog\"`, sans `component_id`) : l'interface relit alors `/api/devices`.",
         "properties": {
@@ -1597,6 +1610,35 @@
         "title": "LockChangedEvent",
         "type": "object"
       },
+      "LockOut": {
+        "properties": {
+          "has_code": {
+            "title": "Has Code",
+            "type": "boolean"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "retry_after_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After S"
+          }
+        },
+        "required": [
+          "locked",
+          "has_code"
+        ],
+        "title": "LockOut",
+        "type": "object"
+      },
       "LogNode": {
         "additionalProperties": false,
         "properties": {
@@ -1623,6 +1665,32 @@
           "message"
         ],
         "title": "LogNode",
+        "type": "object"
+      },
+      "NewCode": {
+        "properties": {
+          "new_code": {
+            "description": "4 à 8 chiffres",
+            "pattern": "^\\d{4,8}$",
+            "title": "New Code",
+            "type": "string"
+          },
+          "old_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Code"
+          }
+        },
+        "required": [
+          "new_code"
+        ],
+        "title": "NewCode",
         "type": "object"
       },
       "NodeFinishedEvent": {
@@ -3081,6 +3149,17 @@
       },
       "StartRun": {
         "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
           "policy": {
             "default": "ignore",
             "enum": [
@@ -3106,6 +3185,9 @@
         "properties": {
           "home_assistant": {
             "$ref": "#/components/schemas/HomeAssistantStatus"
+          },
+          "lock": {
+            "$ref": "#/components/schemas/LockOut"
           },
           "relays": {
             "additionalProperties": {
@@ -3135,6 +3217,7 @@
         },
         "required": [
           "version",
+          "lock",
           "runs",
           "relays",
           "home_assistant",
@@ -5183,6 +5266,120 @@
         ]
       }
     },
+    "/api/lock": {
+      "get": {
+        "description": "État du verrouillage (jamais l'empreinte du code).",
+        "operationId": "get_lock",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Lock",
+        "tags": [
+          "verrouillage"
+        ]
+      },
+      "post": {
+        "description": "Verrouille (sans code, comme le cadenas de l'interface). Conservé au redémarrage.",
+        "operationId": "lock",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          },
+          "409": {
+            "description": "Aucun code défini : en définir un d'abord"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lock",
+        "tags": [
+          "verrouillage"
+        ]
+      }
+    },
+    "/api/lock/code": {
+      "put": {
+        "description": "Définit le code, ou le change (`old_code` alors obligatoire). Refusé si verrouillé.",
+        "operationId": "put_lock_code",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Ancien code manquant ou incorrect"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "423": {
+            "description": "Verrouillé : déverrouiller d'abord"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Lock Code",
+        "tags": [
+          "verrouillage"
+        ]
+      }
+    },
     "/api/programs": {
       "get": {
         "operationId": "list_programs",
@@ -5458,7 +5655,7 @@
         ]
       },
       "post": {
-        "description": "Lance un programme. Plusieurs programmes différents peuvent tourner en même temps.",
+        "description": "Lance un programme. Plusieurs programmes différents peuvent tourner en même temps.\n\nVerrouillé, le `code` est exigé à chaque lancement (il n'ouvre aucune session).",
         "operationId": "start_run",
         "requestBody": {
           "content": {
@@ -5482,7 +5679,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Jeton d'API manquant ou invalide"
+            "description": "Code incorrect"
           },
           "404": {
             "description": "Programme inconnu"
@@ -5492,6 +5689,9 @@
           },
           "422": {
             "description": "Programme écarté : incompatible avec la configuration"
+          },
+          "423": {
+            "description": "Verrouillé : le code est obligatoire"
           },
           "429": {
             "description": "Trop de runs simultanés"
@@ -5748,6 +5948,59 @@
           "exécution"
         ]
       }
+    },
+    "/api/unlock": {
+      "post": {
+        "description": "Déverrouille avec le code.",
+        "operationId": "unlock",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Code"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Code incorrect"
+          },
+          "409": {
+            "description": "Aucun code défini"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unlock",
+        "tags": [
+          "verrouillage"
+        ]
+      }
     }
   },
   "security": [
@@ -5759,6 +6012,10 @@
     {
       "description": "Vivacité et état du moteur",
       "name": "système"
+    },
+    {
+      "description": "Code, verrouiller et déverrouiller",
+      "name": "verrouillage"
     },
     {
       "description": "Relais, boutons, lumières, interrupteurs et catalogue",
