@@ -29,11 +29,19 @@ from pydantic import ValidationError
 from halloween.backend import Backend
 from halloween.config.models import AppConfig
 from halloween.config.validation import validate_config
-from halloween.drivers.base import ButtonDriver, HAClient, RelayDriver
+from halloween.drivers.base import ButtonDriver, ButtonEvent, HAClient, RelayDriver
+from halloween.drivers.observed import ObservedHAClient, ObservedRelayDriver
+from halloween.events import (
+    ButtonPressEvent,
+    ComponentChangedEvent,
+    ErrorEvent,
+    EventHub,
+    from_run_event,
+)
 from halloween.issues import Issue, errors
-from halloween.log import get_logger
-from halloween.program.models import Program
-from halloween.program.runs import RunManager
+from halloween.log import current_context, get_logger
+from halloween.program.models import ActionNode, Program
+from halloween.program.runs import RunEvent, RunManager
 from halloween.program.validation import validate_program
 from halloween.store import Store
 from halloween.triggers import TriggerEngine, parse_triggers, validate_triggers
@@ -87,6 +95,7 @@ class Engine:
         self._retry: asyncio.Task[None] | None = None
         self.report = StartupReport()
         self.ready = asyncio.Event()
+        self.hub = EventHub()
         self._reconfiguring = asyncio.Lock()
         # Sérialise les modifications de configuration faites par l'API (lecture puis écriture).
         self.config_lock = asyncio.Lock()
@@ -134,7 +143,20 @@ class Engine:
 
         self._load_programs(report)
         triggers = self._load_triggers(report)
-        self.manager = RunManager(self.config, self._relays, self._ha, self._buttons, self.programs)
+        self._buttons.subscribe(self._on_button)
+        observed_relays = ObservedRelayDriver(
+            self._relays, [r.id for r in self.config.relays], self._on_relay_change
+        )
+        observed_ha = ObservedHAClient(self._ha, self._on_ha_change)
+        self.manager = RunManager(
+            self.config,
+            observed_relays,
+            observed_ha,
+            self._buttons,
+            self.programs,
+            on_event=self._on_run_event,
+            on_action_error=self._on_action_error,
+        )
         self.triggers = TriggerEngine(
             self.manager, self._buttons, self.programs, triggers, clock=self._clock
         )
@@ -197,7 +219,9 @@ class Engine:
             await self.stop()
             self.store.save_config(config)
             self.config = config
-            return await self._build()
+            report = await self._build()
+        self.hub.publish(ComponentChangedEvent(kind="catalog"))
+        return report
 
     def reload_content(self) -> list[Issue]:
         """Recharge programmes et déclencheurs depuis le disque (après une modification par l'API).
@@ -220,6 +244,52 @@ class Engine:
         self.config = config
         if self.manager is not None:
             self.manager.update_config(config)
+        self.hub.publish(ComponentChangedEvent(kind="catalog"))
+
+    # ------------------------------------------------------------------ événements temps réel
+
+    def _on_run_event(self, event: RunEvent) -> None:
+        for item in from_run_event(event):
+            self.hub.publish(item)
+
+    def _on_button(self, event: ButtonEvent) -> None:
+        self.hub.publish(ButtonPressEvent(button_id=event.button_id, event=event.event))
+
+    def _on_relay_change(self, relay_id: str, on: bool) -> None:
+        self.hub.publish(
+            ComponentChangedEvent(kind="relay", component_id=relay_id, state="on" if on else "off")
+        )
+
+    def _on_ha_change(self, domain: str, service: str, data: dict) -> None:
+        components = {
+            **{light.entity_id: ("light", light.id) for light in self.config.lights},
+            **{switch.entity_id: ("switch", switch.id) for switch in self.config.switches},
+        }
+        found = components.get(str(data.get("entity_id")))
+        if found is None or service not in ("turn_on", "turn_off"):
+            return
+        kind, component_id = found
+        details = {k: v for k, v in data.items() if k in ("rgb_color", "brightness", "transition")}
+        self.hub.publish(
+            ComponentChangedEvent(
+                kind=kind,  # type: ignore[arg-type]
+                component_id=component_id,
+                state="on" if service == "turn_on" else "off",
+                details=details,
+            )
+        )
+
+    def _on_action_error(self, node: ActionNode, exc: Exception) -> None:
+        context = current_context()
+        self.hub.publish(
+            ErrorEvent(
+                source="action",
+                message=str(exc),
+                run_id=context.get("run_id"),
+                node_id=node.id,
+                component_id=getattr(node, "target", None),
+            )
+        )
 
     # ------------------------------------------------------------------ chargement
 

@@ -26,7 +26,7 @@ from halloween.log import get_logger, log_context
 from halloween.program.actions import DeviceActions
 from halloween.program.conditions import Conditions
 from halloween.program.interpreter import ActionRunner, Interpreter, NodeEvent, RunContext
-from halloween.program.models import LightNode, Program, RelayNode, SwitchNode
+from halloween.program.models import ActionNode, LightNode, Program, RelayNode, SwitchNode
 
 log = get_logger("runs")
 
@@ -108,6 +108,7 @@ class RunManager:
         programs: Mapping[str, Program],
         on_event: Callable[[RunEvent], None] | None = None,
         rng_factory: Callable[[], random.Random] = random.Random,
+        on_action_error: Callable[[ActionNode, Exception], None] | None = None,
     ) -> None:
         self._config = config
         self._relays = relays
@@ -117,7 +118,7 @@ class RunManager:
         self._on_event = on_event
         self._rng_factory = rng_factory
         # Une seule instance partagée : le verrou d'animation des relais impulsion y vit.
-        self.actions = DeviceActions(config, relays, ha)
+        self.actions = DeviceActions(config, relays, ha, on_action_error)
         self._runs: dict[str, Run] = {}
         self._owner: dict[str, str] = {}
 

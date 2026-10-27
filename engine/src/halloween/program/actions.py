@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
 from halloween.config.models import AppConfig, Relay, RelayMode
@@ -29,7 +30,14 @@ class DeviceActions(ActionRunner):
       ignoré (l'objet est occupé).
     """
 
-    def __init__(self, config: AppConfig, relays: RelayDriver, ha: HAClient) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        relays: RelayDriver,
+        ha: HAClient,
+        on_error: Callable[[ActionNode, Exception], None] | None = None,
+    ) -> None:
+        self._on_error = on_error
         self._config = config
         self._relays = relays
         self._ha = ha
@@ -64,6 +72,8 @@ class DeviceActions(ActionRunner):
             "action en échec",
             extra={"error": str(exc), "error_type": type(exc).__name__, "on_error": node.on_error},
         )
+        if self._on_error is not None:
+            self._on_error(node, exc)
         if node.on_error == "abort":
             raise ActionFailed(f"{node.id} : {exc}") from exc
 
