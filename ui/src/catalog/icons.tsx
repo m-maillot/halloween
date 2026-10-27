@@ -3,7 +3,6 @@ import {
   Bell,
   Biohazard,
   Bone,
-  Bug,
   Candy,
   Cat,
   Castle,
@@ -35,17 +34,27 @@ import {
   Zap,
 } from "lucide-react";
 
+import { Bat, Cauldron, Pumpkin, Scarecrow, Spider, Tombstone } from "./customIcons";
+
 export type Kind = "relays" | "buttons" | "lights" | "switches";
 
 /** Bibliothèque intégrée : `image: "builtin:<nom>"`. Icônes Lucide (licence ISC, sans attribution). */
-export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon }> = {
+/** Origine de chaque icône (licence et auteurs dans `about/credits.ts`). */
+export type IconSource = "lucide" | "feather" | "project";
+
+export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon; source?: IconSource }> = {
   ghost: { label: "Fantôme", icon: Ghost },
   skull: { label: "Squelette crâne", icon: Skull },
   bone: { label: "Os", icon: Bone },
   cat: { label: "Chat noir", icon: Cat },
   eye: { label: "Œil", icon: Eye },
-  spider: { label: "Araignée", icon: Bug },
-  moon: { label: "Lune", icon: Moon },
+  spider: { label: "Araignée", icon: Spider, source: "project" },
+  pumpkin: { label: "Citrouille", icon: Pumpkin, source: "project" },
+  bat: { label: "Chauve-souris", icon: Bat, source: "project" },
+  scarecrow: { label: "Épouvantail", icon: Scarecrow, source: "project" },
+  cauldron: { label: "Chaudron", icon: Cauldron, source: "project" },
+  tombstone: { label: "Pierre tombale", icon: Tombstone, source: "project" },
+  moon: { label: "Lune", icon: Moon, source: "feather" },
   tree: { label: "Arbre épouvantail", icon: TreePine },
   lightning: { label: "Éclair", icon: Zap },
   storm: { label: "Orage", icon: CloudLightning },
@@ -55,7 +64,7 @@ export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon }> 
   light: { label: "Lumière", icon: Lightbulb },
   lamp: { label: "Lampe", icon: Lamp },
   plug: { label: "Prise", icon: Plug },
-  power: { label: "Alimentation", icon: Power },
+  power: { label: "Alimentation", icon: Power, source: "feather" },
   button: { label: "Bouton", icon: CircleDot },
   sparkles: { label: "Étincelles magie", icon: Sparkles },
   wand: { label: "Baguette", icon: WandSparkles },
@@ -73,6 +82,8 @@ export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon }> 
   hammer: { label: "Marteau", icon: Hammer },
   biohazard: { label: "Danger", icon: Biohazard },
 };
+
+export const sourceOf = (name: string): IconSource => BUILTIN_ICONS[name]?.source ?? "lucide";
 
 /** Icône attribuée tant qu'aucune image n'est choisie. */
 export const DEFAULT_ICON: Record<Kind, string> = {

@@ -684,3 +684,12 @@ a.btn {
 .keypad__key--ghost {
   background: transparent;
 }
+
+.credits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 14px;
+}
