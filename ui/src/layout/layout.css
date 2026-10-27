@@ -215,3 +215,115 @@ button.pill {
   background: var(--color-surface-2);
   color: var(--color-accent-text);
 }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: rgb(0 0 0 / 0.65);
+}
+.modal {
+  width: min(640px, 100%);
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+}
+.modal__title {
+  margin: 0 0 16px;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.form-actions__spacer {
+  flex: 1;
+}
+.form-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+.form-error ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.field--check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+}
+.field--check input {
+  width: 22px;
+  height: 22px;
+}
+.field--check .field__hint {
+  grid-column: 2;
+}
+.field-group,
+.image-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.image-picker__current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.icon-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--target);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.icon-choice[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-surface-active);
+}
+.test-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border-strong);
+}
+.test-panel h3 {
+  margin: 0;
+}

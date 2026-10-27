@@ -1,6 +1,9 @@
 import { Plus } from "lucide-react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCatalog, type Devices } from "../catalog/CatalogProvider";
+import { ComponentForm } from "../catalog/ComponentForm";
+import type { Existing } from "../catalog/draft";
 import { ComponentImage, KIND_LABEL, type Kind } from "../catalog/icons";
 import { Button, Card, Pill } from "../components/ui";
 
@@ -60,12 +63,14 @@ export function Components() {
   const [params, setParams] = useSearchParams();
   const requested = params.get("type");
   const kind: Kind = isKind(requested) ? requested : "relays";
+  // `null` : fermé ; `"new"` : création ; sinon le composant en modification.
+  const [editing, setEditing] = useState<Existing | "new" | null>(null);
 
   return (
     <>
       <div className="page-head">
         <h1>Composants</h1>
-        <Button variant="primary" disabled={!devices}>
+        <Button variant="primary" disabled={!devices} onClick={() => setEditing("new")}>
           <Plus size={18} aria-hidden="true" /> Ajouter {SINGULAR[kind]}
         </Button>
       </div>
@@ -80,7 +85,10 @@ export function Components() {
             aria-selected={k === kind}
             aria-controls="components-panel"
             className={k === kind ? "tab tab--active" : "tab"}
-            onClick={() => setParams({ type: k }, { replace: true })}
+            onClick={() => {
+              setEditing(null);
+              setParams({ type: k }, { replace: true });
+            }}
           >
             {KIND_LABEL[k]}
             {devices && <span className="tab__count">{devices[k].length}</span>}
@@ -97,7 +105,7 @@ export function Components() {
           <ul className="grid">
             {(devices[kind] as Item[]).map((item) => (
               <li key={item.id}>
-                <Card label={item.name}>
+                <Card label={item.name} onClick={() => setEditing(item)}>
                   <div className="component-card">
                     <ComponentImage kind={kind} image={item.image} imageUrl={item.image_url} size={44} />
                     <div className="component-card__text">
@@ -116,6 +124,15 @@ export function Components() {
           </ul>
         )}
       </div>
+
+      {editing && (
+        <ComponentForm
+          key={editing === "new" ? "new" : editing.id}
+          kind={kind}
+          existing={editing === "new" ? undefined : editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
   );
 }
