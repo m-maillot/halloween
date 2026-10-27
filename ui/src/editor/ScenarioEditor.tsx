@@ -5,9 +5,13 @@ import { api } from "../api/client";
 import { unwrap } from "../api/errors";
 import { useCatalog } from "../catalog/CatalogProvider";
 import { Button, Field } from "../components/ui";
+import { CodePrompt } from "../dashboard/CodePrompt";
+import { useEngine } from "../engine/EngineProvider";
 import { useToasts } from "../components/Toasts";
 import { BlocklyEditor } from "./BlocklyEditor";
 import { IssuePanel } from "./IssuePanel";
+import { RunBanner } from "./RunBanner";
+import { useRunView } from "./useRunView";
 import { SimulationPanel, type Press } from "./SimulationPanel";
 import type { SimulationOut } from "./timeline";
 import { loadProgram, workspaceToProgram, type Program } from "./serialize";
@@ -17,6 +21,7 @@ import { summary } from "./validation";
 export function ScenarioEditor() {
   const { id = "" } = useParams();
   const { devices } = useCatalog();
+  const { status } = useEngine();
   const toasts = useToasts();
   const workspace = useRef<Blockly.Workspace | null>(null);
   const [program, setProgram] = useState<Program | null>(null);
@@ -25,18 +30,22 @@ export function ScenarioEditor() {
   const [simulation, setSimulation] = useState<SimulationOut | null>(null);
   const [presses, setPresses] = useState<Press[]>([]);
   const [simulating, setSimulating] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [askCode, setAskCode] = useState(false);
 
-  const view = () => {
+  const viewState = () => {
     const ws = workspace.current;
     return ws instanceof Blockly.WorkspaceSvg ? { zoom: ws.getScale(), scroll: { x: Math.round(ws.scrollX), y: Math.round(ws.scrollY) } } : undefined;
   };
   const build = useCallback((): Program | null => {
     const ws = workspace.current;
     if (!ws || !program) return null;
-    return workspaceToProgram(ws, { ...program, name: name.trim() || program.name }, view());
+    return workspaceToProgram(ws, { ...program, name: name.trim() || program.name }, viewState());
   }, [program, name]);
   const { issues, state, schedule, runNow } = useLiveValidation(workspace, build);
   const blocking = summary(issues).errors > 0;
+  const { view, running, adopt, clear } = useRunView(id, workspace);
+  const locked = status?.lock.locked ?? false;
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +82,7 @@ export function ScenarioEditor() {
         if (editor?.scroll) ws.scroll(editor.scroll.x, editor.scroll.y);
         else ws.scrollCenter();
       }
+      setDirty(false);
       void runNow(); // première validation sans attendre
     }
   }, [program, id, !devices]);
@@ -109,6 +119,20 @@ export function ScenarioEditor() {
     }
   }
 
+  async function launch(code?: string) {
+    const started = await unwrap<{ run_id: string }>(api.POST("/api/runs", { body: { program_id: id, policy: "ignore", code } }));
+    adopt(started.run_id);
+  }
+
+  async function stop() {
+    if (!view.runId) return;
+    try {
+      await unwrap(api.POST("/api/runs/{run_id}/stop", { params: { path: { run_id: view.runId } } }));
+    } catch (error) {
+      toasts.error(error);
+    }
+  }
+
   async function save() {
     const body = build();
     if (!body || !program) return;
@@ -122,6 +146,7 @@ export function ScenarioEditor() {
         }),
       );
       setProgram(saved.program);
+      setDirty(false);
       toasts.info("Scénario enregistré.");
     } catch (error) {
       toasts.error(error);
@@ -141,19 +166,45 @@ export function ScenarioEditor() {
         >
           Simuler
         </Button>
+        {running ? (
+          <Button variant="outline-danger" onClick={() => void stop()}>
+            Arrêter ce scénario
+          </Button>
+        ) : (
+          <Button
+            disabled={!program || blocking || dirty}
+            title={dirty ? "Enregistrez avant de lancer : c'est la version enregistrée qui est lancée" : blocking ? "Corrigez les erreurs avant de lancer" : undefined}
+            onClick={() => {
+              if (locked) setAskCode(true);
+              else void launch().catch((error) => toasts.error(error));
+            }}
+          >
+            Lancer
+          </Button>
+        )}
         <Button
           variant="primary"
-          disabled={busy || !program || blocking}
+          disabled={busy || !program || blocking || running}
           title={blocking ? "Corrigez les erreurs avant d'enregistrer" : undefined}
           onClick={() => void save()}
         >
           Enregistrer
         </Button>
       </div>
+      <RunBanner view={view} onDismiss={clear} />
       <div className="editor-body">
-        <BlocklyEditor devices={devices} onReady={ready} onChange={schedule} />
+        <BlocklyEditor
+          devices={devices}
+          onReady={ready}
+          readOnly={running}
+          onChange={() => {
+            setDirty(true);
+            schedule();
+          }}
+        />
         <IssuePanel issues={issues} state={state} onSelect={select} />
       </div>
+      {askCode && <CodePrompt title="Code pour lancer ce scénario" onSubmit={(code) => launch(code)} onClose={() => setAskCode(false)} />}
       {simulation && (
         <SimulationPanel result={simulation} devices={devices} presses={presses} onPresses={setPresses} onClose={() => setSimulation(null)} />
       )}

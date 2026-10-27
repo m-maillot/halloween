@@ -7,13 +7,14 @@ import { FakeWebSocket, STATUS, stubEngine, WS, type Call } from "../test-engine
 
 // Blockly a besoin d'un vrai navigateur pour s'afficher : on branche un espace de travail sans affichage,
 // qui émet les mêmes événements de modification.
-const shared = vi.hoisted(() => ({ ws: null as unknown }));
+const shared = vi.hoisted(() => ({ ws: null as unknown, readOnly: false }));
 vi.mock("./BlocklyEditor", async () => {
   const React = await import("react");
   const { registerBlocks } = await import("./blocks");
   const { setCatalog } = await import("./catalog");
   return {
-    BlocklyEditor: ({ devices, onReady, onChange }: { devices: never; onReady: (ws: unknown) => void; onChange?: (e: unknown) => void }) => {
+    BlocklyEditor: ({ devices, onReady, onChange, readOnly }: { devices: never; onReady: (ws: unknown) => void; onChange?: (e: unknown) => void; readOnly?: boolean }) => {
+      shared.readOnly = Boolean(readOnly);
       React.useEffect(() => {
         registerBlocks();
         setCatalog(devices);
@@ -271,4 +272,129 @@ test("les appuis simulés sont envoyés avec la simulation", async () => {
   expect(within(section).getByText(/Bouton principal : appui double à 7 s/)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Simuler" }));
   await waitFor(() => expect((received as { button_presses: unknown[] } | null)?.button_presses).toEqual([{ t: 7, button: "bp", event: "double" }]));
+});
+
+
+// ------------------------------------------------------------------ exécution
+
+const emit = (event: object) => act(() => FakeWebSocket.emit(event));
+const start = (runId = "r1", programId = "scene") => emit({ type: "run_started", run_id: runId, program_id: programId, ts: 100 });
+const node = (type: "node_started" | "node_finished", id: string, runId = "r1") => emit({ type, run_id: runId, program_id: "scene", script_id: "s1", node_id: id });
+const banner = () => screen.queryByRole("status", { name: "Exécution" });
+
+test("Lancer démarre le scénario enregistré ; l'éditeur passe en lecture seule et propose Arrêter", async () => {
+  let launched: unknown = null;
+  vi.unstubAllGlobals();
+  calls = stubEngine(({ path, method, body }) => {
+    if (path === "/api/status") return STATUS;
+    if (path === "/api/devices") return devices;
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") return program([relay("a", "on")]);
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+    if (path === "/api/runs" && method === "POST") {
+      launched = body;
+      return { run_id: "r1", program_id: "scene", state: "running" };
+    }
+    if (path === "/api/runs/r1/stop") return { stopped: 1 };
+  });
+  await open();
+  const user = userEvent.setup();
+  expect(shared.readOnly).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Lancer" }));
+  await waitFor(() => expect(launched).toEqual({ program_id: "scene", policy: "ignore" }));
+  expect(await screen.findByText("Scénario en cours…")).toBeInTheDocument();
+  expect(shared.readOnly).toBe(true);
+  expect(screen.queryByRole("button", { name: "Lancer" })).toBeNull();
+  expect(save()).toBeDisabled(); // pas d'enregistrement pendant un run
+  await user.click(screen.getByRole("button", { name: "Arrêter ce scénario" }));
+  await waitFor(() => expect(calls.some((c) => c.path === "/api/runs/r1/stop")).toBe(true));
+});
+
+test("Lancer est désactivé tant que le scénario a des modifications non enregistrées", async () => {
+  await open();
+  expect(screen.getByRole("button", { name: "Lancer" })).toBeEnabled();
+  await act(async () => {
+    const block = ws().newBlock("hw_log", "nouveau");
+    ws().getBlockById("s1")!.nextConnection!.connect(block.previousConnection!);
+  });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Lancer" })).toBeDisabled());
+  expect(screen.getByRole("button", { name: "Lancer" })).toHaveAttribute("title", expect.stringContaining("Enregistrez avant de lancer"));
+});
+
+test("la fin du run affiche l'issue et la durée, l'éditeur redevient modifiable", async () => {
+  await open();
+  await start();
+  expect(shared.readOnly).toBe(true);
+  await emit({ type: "run_ended", run_id: "r1", program_id: "scene", outcome: "completed", ts: 117.5 });
+  expect(within(banner()!).getByText("Terminé · 17.5 s")).toBeInTheDocument();
+  expect(shared.readOnly).toBe(false);
+  await userEvent.setup().click(within(banner()!).getByRole("button", { name: "Fermer" }));
+  expect(banner()).toBeNull();
+});
+
+test.each([
+  ["stopped", "Arrêté"],
+  ["failed", "Échoué"],
+  ["timeout", /Délai dépassé/],
+])("issue « %s » annoncée", async (outcome, text) => {
+  await open();
+  await start();
+  await emit({ type: "run_ended", run_id: "r1", program_id: "scene", outcome, error: outcome === "failed" ? "relais bloqué" : null, ts: 105 });
+  expect(within(banner()!).getByText(text, { exact: false })).toBeInTheDocument();
+  if (outcome === "failed") expect(within(banner()!).getByText("relais bloqué")).toBeInTheDocument();
+});
+
+test("une erreur d'action est listée, le run continue", async () => {
+  await open();
+  await start();
+  await emit({ type: "error", source: "action", run_id: "r1", node_id: "a", message: "Home Assistant injoignable" });
+  expect(within(banner()!).getByRole("list", { name: "Erreurs pendant l'exécution" })).toHaveTextContent("Home Assistant injoignable");
+  expect(within(banner()!).getByText("Scénario en cours…")).toBeInTheDocument();
+});
+
+test("l'éditeur ne suit que le run de son scénario : l'arrêt d'un autre run n'y change rien", async () => {
+  await open();
+  await start("r1", "scene");
+  await start("r2", "autre"); // un autre scénario démarre
+  await node("node_started", "a", "r1");
+  await emit({ type: "run_ended", run_id: "r2", program_id: "autre", outcome: "stopped", ts: 150 }); // et s'arrête
+  expect(within(banner()!).getByText("Scénario en cours…")).toBeInTheDocument();
+  expect(shared.readOnly).toBe(true);
+});
+
+test("ouvert pendant un run déjà en cours, l'éditeur s'y raccroche", async () => {
+  vi.unstubAllGlobals();
+  calls = stubEngine(({ path, method }) => {
+    if (path === "/api/status") return { ...STATUS, runs: [{ run_id: "r7", program_id: "scene", state: "running", started_at: 1 }] };
+    if (path === "/api/devices") return devices;
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") return program([relay("a", "on")]);
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+  });
+  render(<App WebSocketImpl={WS} />);
+  expect(await screen.findByText("Scénario en cours…")).toBeInTheDocument();
+  expect(shared.readOnly).toBe(true);
+});
+
+test("verrouillé : le code est demandé pour lancer", async () => {
+  let code: unknown = null;
+  vi.unstubAllGlobals();
+  calls = stubEngine(({ path, method, body }) => {
+    if (path === "/api/status") return { ...STATUS, lock: { locked: true, has_code: true } };
+    if (path === "/api/devices") return devices;
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") return program([relay("a", "on")]);
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+    if (path === "/api/runs" && method === "POST") {
+      code = (body as { code?: string }).code;
+      return { run_id: "r1", program_id: "scene", state: "running" };
+    }
+  });
+  await open();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Lancer" }));
+  expect(calls.some((c) => c.path === "/api/runs")).toBe(false);
+  await user.type(screen.getByLabelText("Code"), "1234");
+  await user.click(screen.getByRole("button", { name: "Valider" }));
+  await waitFor(() => expect(code).toBe("1234"));
 });

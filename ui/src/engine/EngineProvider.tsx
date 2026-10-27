@@ -104,6 +104,13 @@ export function EngineProvider({
     };
   }, [refresh, WebSocketImpl]);
 
+  // Identité stable : les écrans qui s'abonnent (tableau de bord, éditeur) ne se réabonnent pas, et ne
+  // relancent pas leurs lectures, à chaque nouvel état reçu.
+  const subscribe = useCallback((listener: (event: EngineEvent) => void) => {
+    listeners.current.add(listener);
+    return () => listeners.current.delete(listener);
+  }, []);
+
   const value = useMemo<EngineContext>(
     () => ({
       status,
@@ -114,12 +121,9 @@ export function EngineProvider({
         socket.current?.retry();
         void refresh();
       },
-      subscribe: (listener) => {
-        listeners.current.add(listener);
-        return () => listeners.current.delete(listener);
-      },
+      subscribe,
     }),
-    [status, connection, refresh],
+    [status, connection, refresh, subscribe],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
