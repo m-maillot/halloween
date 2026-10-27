@@ -21,3 +21,9 @@ cd ui && npm run dev                  # http://localhost:5173, /api relayé vers
 ## Vérifier et déployer
 
 `make ui-check` (types, tests, build). Le build (`ui/dist`) est servi par le moteur : `halloween-cli api --ui-dir ui/dist` ou `HALLOWEEN_UI_DIR`.
+
+## Tests de bout en bout
+
+`make ui-e2e` (ou `cd ui && npm run e2e`) construit l'interface, démarre le **vrai moteur en simulation** (`halloween-cli api --simulate` : pilotes fictifs, dossier de données neuf `ui/.e2e-data`) puis joue six parcours dans Chromium : composants, éditeur (glisser-déposer, enregistrement, rechargement, simulation), exécution (surlignage de deux scripts, STOP), déclencheur, mode spectacle, verrouillage.
+
+Navigateur : `npx playwright install chromium` la première fois, ou un Chromium déjà installé désigné par `E2E_CHROMIUM=/chemin/vers/chrome`. Les parcours s'enchaînent sur le même moteur (ordre du fichier) ; en cas d'échec, la trace est dans `ui/test-results/`.

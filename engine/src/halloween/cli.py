@@ -32,7 +32,7 @@ from typing import Any, TextIO
 
 from pydantic import ValidationError
 
-from halloween.backend import Backend, gpio_backend
+from halloween.backend import Backend, gpio_backend, simulated_backend
 from halloween.config.models import AppConfig
 from halloween.config.validation import validate_config
 from halloween.drivers.base import ButtonDriver, ButtonEvent, RelayDriver
@@ -104,6 +104,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="dossier du build de l'interface (HALLOWEEN_UI_DIR)",
     )
     api.add_argument("--ha-dry-run", action="store_true", help="n'envoie rien à Home Assistant")
+    api.add_argument(
+        "--simulate",
+        action="store_true",
+        help="pilotes fictifs (ni GPIO ni Home Assistant) : essayer l'interface, tests e2e",
+    )
 
     unlock = sub.add_parser("unlock", help="code de verrouillage perdu : le supprimer")
     unlock.add_argument(
@@ -483,7 +488,8 @@ def main(
         log_file = None
         setup_logging(level, sys.stderr)
     args.log_file = log_file  # None si le fichier n'est pas écrit
-    backend = backend or gpio_backend()
+    if backend is None:
+        backend = simulated_backend() if getattr(args, "simulate", False) else gpio_backend()
     try:
         return asyncio.run(_supervised(COMMANDS[args.command](args, backend, out)))
     except CliError as exc:

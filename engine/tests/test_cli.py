@@ -249,3 +249,42 @@ def test_unlock_reset_recovers_an_unreadable_lock_file(env):
     assert LockState.in_dir(env.data).locked  # échec fermé
     assert env.cli("unlock", "--reset")[0] == 0
     assert not LockState.in_dir(env.data).locked
+
+
+def test_simulated_backend_has_no_hardware_and_keeps_relay_state_in_memory():
+    from halloween.backend import simulated_backend
+
+    config = AppConfig.model_validate(
+        json.loads((ROOT / "deploy" / "config.example.json").read_text(encoding="utf-8"))
+    )
+    backend = simulated_backend()
+    relays = backend.relays(config)
+    buttons = backend.buttons(config)
+    ha = backend.ha(config, lambda _line: None, False)
+
+    async def scenario():
+        await relays.set("fantome", True)
+        assert relays.is_on("fantome")
+        await relays.all_off()
+        assert not relays.is_on("fantome")
+        await buttons.simulate("bouton_principal", "short")  # pas de GPIO : un appui simulé passe
+        return ha
+
+    assert isinstance(asyncio.run(scenario()), DryRunHAClient)  # aucun appel réseau
+
+
+def test_api_accepts_the_simulate_flag_and_only_then_uses_fakes(monkeypatch, tmp_path):
+    from halloween import cli
+
+    seen = {}
+
+    async def fake_api(args, backend, out):
+        seen["simulate"] = args.simulate
+        seen["relay_is_fake"] = isinstance(
+            backend.relays(AppConfig.model_validate({"relays": []})), FakeRelayDriver
+        )
+        return 0
+
+    monkeypatch.setitem(cli.COMMANDS, "api", fake_api)
+    assert main(["--data-dir", str(tmp_path), "api", "--simulate"]) == 0
+    assert seen == {"simulate": True, "relay_is_fake": True}

@@ -24,3 +24,8 @@ ui/dist/
 .idea/
 .vscode/
 .DS_Store
+
+# Tests de bout en bout
+ui/.e2e-data/
+ui/test-results/
+ui/playwright-report/

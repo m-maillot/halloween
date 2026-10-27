@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    include: ["src/**/*.test.{ts,tsx}"], // les parcours Playwright (e2e/) ont leur propre lanceur
     setupFiles: ["./src/test-setup.ts"],
   },
 });

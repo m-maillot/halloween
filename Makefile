@@ -1,4 +1,4 @@
-.PHONY: test lint format check openapi ui-install ui-api ui-check
+.PHONY: test lint format check openapi ui-install ui-api ui-check ui-e2e
 
 test:  ## Lance les tests du moteur
 	cd engine && uv run pytest
@@ -23,3 +23,6 @@ ui-api:  ## Régénère les types du client d'API depuis docs/openapi.json
 ui-check:  ## Interface : types à jour, typage, tests, build
 	cd ui && npm run gen:api && git diff --exit-code src/api/schema.d.ts
 	cd ui && npm run typecheck && npm test && npm run build
+
+ui-e2e:  ## Interface : parcours de bout en bout (Playwright) contre le moteur en simulation
+	cd ui && npm run e2e

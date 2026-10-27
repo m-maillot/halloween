@@ -44,3 +44,20 @@ def gpio_backend() -> Backend:
         return HttpHAClient.from_config(settings)
 
     return Backend(relays, buttons, ha)
+
+
+def simulated_backend() -> Backend:
+    """Pilotes fictifs : ni GPIO ni appel à Home Assistant. Pour essayer l'interface sans matériel
+    et pour les tests de bout en bout ; l'état des relais est tenu en mémoire."""
+    from halloween.drivers.fakes import FakeButtonDriver, FakeRelayDriver
+
+    def relays(config: AppConfig) -> RelayDriver:
+        return FakeRelayDriver.from_config(config)
+
+    def buttons(config: AppConfig) -> ButtonDriver:
+        return FakeButtonDriver(b.id for b in config.buttons)
+
+    def ha(_config: AppConfig, write: Callable[[str], None], _dry_run: bool) -> HAClient:
+        return DryRunHAClient(write)
+
+    return Backend(relays, buttons, ha)
