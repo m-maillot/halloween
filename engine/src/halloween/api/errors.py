@@ -7,11 +7,15 @@ from halloween.issues import Issue
 
 
 def api_error(
-    status: int, message: str, issues: list[Issue] | None = None, **extra: object
+    status: int,
+    message: str,
+    issues: list[Issue] | None = None,
+    headers: dict[str, str] | None = None,
+    **extra: object,
 ) -> HTTPException:
     body = {
         "message": message,
         "issues": [IssueOut.from_issue(i).model_dump() for i in issues or []],
         **extra,
     }
-    return HTTPException(status, detail=body)
+    return HTTPException(status, detail=body, headers=headers)

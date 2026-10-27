@@ -216,3 +216,36 @@ def test_interruption_stops_the_run_and_turns_everything_off(env):
         timer.cancel()
     assert code == 130
     assert not env.relays.is_on("fantome")
+
+
+# ------------------------------------------------------------------ unlock --reset
+
+
+def test_unlock_without_reset_is_a_usage_error(env, capsys):
+    assert env.cli("unlock")[0] == 2
+    assert "--reset" in capsys.readouterr().err
+
+
+def test_unlock_reset_removes_code_and_unlocks(env):
+    from halloween.lock import LockState
+
+    lock = LockState.in_dir(env.data)
+    lock.set_code("1234")
+    lock.lock()
+    code, out = env.cli("unlock", "--reset")
+    assert code == 0 and "déverrouillé" in out
+    assert not lock.locked and not lock.has_code and not (env.data / "lock.json").exists()
+
+
+def test_unlock_reset_without_code_is_harmless(env):
+    code, out = env.cli("unlock", "--reset")
+    assert code == 0 and "Aucun code" in out
+
+
+def test_unlock_reset_recovers_an_unreadable_lock_file(env):
+    from halloween.lock import LockState
+
+    (env.data / "lock.json").write_text("abîmé")
+    assert LockState.in_dir(env.data).locked  # échec fermé
+    assert env.cli("unlock", "--reset")[0] == 0
+    assert not LockState.in_dir(env.data).locked
