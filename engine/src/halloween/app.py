@@ -22,6 +22,7 @@ import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -85,11 +86,24 @@ class Engine:
         self._ha: HAClient | None = None
         self._retry: asyncio.Task[None] | None = None
         self.report = StartupReport()
+        self.ready = asyncio.Event()
+        self._reconfiguring = asyncio.Lock()
+        # Sérialise les modifications de configuration faites par l'API (lecture puis écriture).
+        self.config_lock = asyncio.Lock()
 
     @property
     def relays(self) -> RelayDriver:
         assert self._relays is not None, "moteur non démarré"
         return self._relays
+
+    @property
+    def buttons(self) -> ButtonDriver:
+        assert self._buttons is not None, "moteur non démarré"
+        return self._buttons
+
+    @property
+    def images_dir(self) -> Path:
+        return self.store.root / "images"
 
     @property
     def ha(self) -> HAClient:
@@ -105,10 +119,13 @@ class Engine:
             raise
 
     async def _start(self) -> StartupReport:
-        report = StartupReport()
         self.store.initialize()
         self.config = self._load_config()
+        return await self._build()
 
+    async def _build(self) -> StartupReport:
+        """Crée pilotes, gestionnaire et déclencheurs d'après `self.config` (ordre en tête)."""
+        report = StartupReport()
         # Pilotes : les sorties sont au repos dès leur création ; on le garantit aussitôt.
         self._relays = self._backend.relays(self.config)
         self._buttons = self._backend.buttons(self.config)
@@ -130,10 +147,11 @@ class Engine:
         await self.triggers.start()
 
         report.programs = len(self.programs)
-        report.triggers = len(triggers)
+        report.triggers = len(self.triggers.triggers)
         for issue in report.issues:
             log.warning("démarrage : %s", issue.message, extra={"code": issue.code})
         self.report = report
+        self.ready.set()
         log.info(
             "moteur démarré",
             extra={"programs": report.programs, "triggers": report.triggers},
@@ -142,6 +160,7 @@ class Engine:
 
     async def stop(self) -> None:
         """Arrêt propre : plus de réaction, tout s'arrête, relais éteints, broches libérées."""
+        self.ready.clear()
         if self._retry is not None:
             self._retry.cancel()
             await asyncio.gather(self._retry, return_exceptions=True)
@@ -158,6 +177,34 @@ class Engine:
             await self._relays.close()
         if self._ha is not None:
             await self._ha.close()
+        self.manager = self.triggers = None
+        self._relays = self._buttons = self._ha = None
+
+    async def apply_config(self, config: AppConfig) -> StartupReport:
+        """Remplace la configuration à chaud (spec 1 §4.6).
+
+        Valide d'abord (invalide : `StartupError`, rien ne change), puis arrête tout (les runs en
+        cours sont stoppés, état de repos de l'ancienne configuration), enregistre, et reconstruit
+        pilotes, programmes et déclencheurs. `ready` est levé pendant l'opération.
+        """
+        problems = errors(validate_config(config))
+        if problems:
+            raise StartupError(
+                "configuration invalide :\n" + "\n".join(f"  - {p.message}" for p in problems),
+                problems,
+            )
+        async with self._reconfiguring:
+            await self.stop()
+            self.store.save_config(config)
+            self.config = config
+            return await self._build()
+
+    def update_cosmetics(self, config: AppConfig) -> None:
+        """Enregistre une config qui ne change que noms, images, repos : rien n'est interrompu."""
+        self.store.save_config(config)
+        self.config = config
+        if self.manager is not None:
+            self.manager.update_config(config)
 
     # ------------------------------------------------------------------ chargement
 
