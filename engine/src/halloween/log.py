@@ -37,6 +37,11 @@ def log_context(**fields: Any) -> Iterator[None]:
         _context.reset(token)
 
 
+def current_context() -> Mapping[str, Any]:
+    """Champs de contexte actifs (`run_id`, `script_id`, `node_id`)."""
+    return _context.get()
+
+
 def get_logger(name: str) -> logging.Logger:
     """Retourne un logger enfant de `halloween`."""
     return logging.getLogger(f"{ROOT_LOGGER}.{name}")

@@ -6,22 +6,24 @@ Le moteur (`Engine`) démarre et s'arrête avec l'application (lifespan). Toutes
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from halloween import __version__
 from halloween.api import components, ha, images, programs, runs, schemas
-from halloween.api.auth import make_dependencies
+from halloween.api.auth import make_auth
 from halloween.api.deps import EngineDep
 from halloween.api.static import placeholder_response, static_app
 from halloween.app import Engine, StartupError, StartupReport
 from halloween.backend import Backend
 from halloween.drivers.homeassistant import HttpHAClient
+from halloween.events import SnapshotEvent
 from halloween.store import Store
 
 
@@ -50,6 +52,7 @@ def create_app(
         try:
             yield
         finally:
+            engine.hub.close()  # termine les connexions WebSocket avant l'arrêt
             await engine.stop()
 
     app = FastAPI(
@@ -58,8 +61,7 @@ def create_app(
         description="API du moteur : composants, programmes, exécution, déclencheurs.",
         lifespan=lifespan,
     )
-    require_token, require_ws_token = make_dependencies(token)
-    app.state.require_ws_token = require_ws_token
+    require_token, websocket_allowed = make_auth(token)
 
     public = APIRouter(prefix="/api")
 
@@ -102,6 +104,48 @@ def create_app(
     app.state.api_router = api
     app.include_router(public)
     app.include_router(api)
+
+    @app.websocket("/api/events")
+    async def events(websocket: WebSocket) -> None:
+        """Flux temps réel (JSON, un événement par message). Jeton : `?token=` ou en-tête Bearer.
+
+        Premier message : `snapshot` (état courant) ; ensuite `run_started`, `node_started`,
+        `node_finished`, `run_ended`, `component_changed`, `button_event`, `error`, `lock_changed`.
+        """
+        if not websocket_allowed(websocket):
+            await websocket.close(code=1008)
+            return
+        engine: Engine = websocket.app.state.engine
+        await websocket.accept()
+        subscription = engine.hub.subscribe()
+        try:
+            snapshot = SnapshotEvent(
+                runs=[run.to_json() for run in engine.manager.active] if engine.manager else [],
+                relays={r.id: engine.relays.is_on(r.id) for r in engine.config.relays}
+                if engine.manager
+                else {},
+            )
+            await websocket.send_json(snapshot.model_dump(mode="json"))
+
+            async def forward() -> None:
+                async for event in subscription:
+                    await websocket.send_json(event)
+
+            async def watch_client() -> None:
+                while True:  # détecte la déconnexion même sans événement à envoyer
+                    await websocket.receive_text()
+
+            tasks = [asyncio.ensure_future(forward()), asyncio.ensure_future(watch_client())]
+            try:
+                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+        except WebSocketDisconnect:
+            pass
+        finally:
+            subscription.close()
 
     ui = static_app(static_dir)
     if ui is not None:

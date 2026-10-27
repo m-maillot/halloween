@@ -44,8 +44,8 @@ def bearer(header: str | None) -> str | None:
     return None
 
 
-def make_dependencies(expected: str) -> tuple[Callable, Callable]:
-    """Dépendances FastAPI : une pour les routes HTTP, une pour le WebSocket."""
+def make_auth(expected: str) -> tuple[Callable, Callable[[WebSocket], bool]]:
+    """Retourne la dépendance FastAPI des routes HTTP et la vérification d'un WebSocket."""
 
     def valid(candidate: str | None) -> bool:
         return candidate is not None and secrets.compare_digest(candidate, expected)
@@ -58,13 +58,11 @@ def make_dependencies(expected: str) -> tuple[Callable, Callable]:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    async def require_ws_token(websocket: WebSocket) -> None:
+    def websocket_allowed(websocket: WebSocket) -> bool:
         # Un navigateur ne peut pas poser d'en-tête sur un WebSocket : le jeton passe en paramètre.
         candidate = websocket.query_params.get("token") or bearer(
             websocket.headers.get("Authorization")
         )
-        if not valid(candidate):
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="jeton invalide")
+        return valid(candidate)
 
-    return require_token, require_ws_token
+    return require_token, websocket_allowed

@@ -315,6 +315,20 @@ Précisions (implémentation) :
 | GET / PUT | `/triggers` | gérer les déclencheurs |
 | WS | `/events` | `run_started` (avec `run_id`), `node_started` / `node_finished` (avec `run_id`, `script_id`, `node_id`), `component_changed`, `button_event`, `lock_changed`, `run_ended`, `error` |
 
+**Événements temps réel** (`WS /api/events?token=…`) : un objet JSON par message, avec `type` et `ts` (secondes depuis 1970). Premier message : `snapshot` (runs, état des relais, verrouillage) pour se resynchroniser après une coupure.
+
+| `type` | Champs | Quand |
+|---|---|---|
+| `run_started` | `run_id`, `program_id` | un programme démarre |
+| `node_started` / `node_finished` | `run_id`, `program_id`, `script_id`, `node_id` | début / fin de chaque bloc (surlignage) |
+| `run_ended` | `run_id`, `program_id`, `outcome`, `error?` | fin d'un run (`completed`, `stopped`, `failed`, `timeout`) |
+| `component_changed` | `kind` (`relay`, `light`, `switch`, `catalog`), `component_id?`, `state?`, `details` | un composant change d'état ; `catalog` : la configuration a changé, relire `/api/devices` |
+| `button_event` | `button_id`, `event` (`short`, `long`, `double`) | appui reconnu sur un bouton |
+| `error` | `source` (`run`, `action`, `startup`), `message`, `run_id?`, `node_id?`, `component_id?` | échec d'une action ou d'un run |
+| `lock_changed` | `locked` | verrouillage (lot 6) |
+
+Un client lent ne ralentit jamais le moteur : sa file est bornée (1000 événements) et les plus anciens sont abandonnés. Limite connue : l'extinction automatique d'un relais par sa durée maximale (`max_on_seconds`) n'émet pas de `component_changed`.
+
 **Verrouillage** (voir 6.4)
 
 | Méthode | Route | Rôle |
