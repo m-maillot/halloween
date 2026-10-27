@@ -146,10 +146,28 @@ test("la perte du WebSocket est signalée, puis résorbée à la reconnexion ave
 
 test("un jeton refusé ramène à la saisie", async () => {
   setToken("mauvais");
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({}, { status: 401 })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({ detail: "jeton d'API manquant ou invalide" }, { status: 401, headers: { "WWW-Authenticate": "Bearer" } }),
+    ),
+  );
   render(<App WebSocketImpl={WS} />);
   await waitFor(() => expect(screen.getByLabelText("Jeton du moteur")).toBeInTheDocument());
   expect(localStorage.getItem("halloween.token")).toBeNull();
+});
+
+test("un code incorrect (401 sans WWW-Authenticate) ne fait pas oublier le jeton", async () => {
+  await connect();
+  (fetch as ReturnType<typeof vi.fn>).mockImplementation(async (req: Request) => {
+    const path = new URL(req.url).pathname;
+    if (path === "/api/runs/stop") return Response.json({ detail: { message: "code incorrect", issues: [] } }, { status: 401 });
+    return path === "/api/status" ? Response.json(status) : Response.json({}, { status: 404 });
+  });
+  await userEvent.click(screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" }));
+  await screen.findByRole("alert");
+  expect(localStorage.getItem("halloween.token")).toBe("secret");
+  expect(screen.queryByLabelText("Jeton du moteur")).toBeNull();
 });
 
 test("un événement arrivé pendant une relecture en cours déclenche une nouvelle relecture", async () => {
@@ -189,7 +207,7 @@ test("un échec de STOP affiche une notification lisible avec détails dépliabl
         { detail: { message: "le périphérique ne répond pas", issues: [{ message: "relais fantome bloqué", component_id: "fantome" }] } },
         { status: 502 },
       );
-    return Response.json(status);
+    return path === "/api/status" ? Response.json(status) : Response.json({}, { status: 404 });
   });
   await userEvent.click(screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" }));
   const toast = await screen.findByRole("alert");
@@ -205,7 +223,9 @@ test("la même erreur répétée n'empile pas les notifications", async () => {
   (fetch as ReturnType<typeof vi.fn>).mockImplementation(async (req: Request) =>
     new URL(req.url).pathname === "/api/runs/stop"
       ? Response.json({ detail: "non" }, { status: 500 })
-      : Response.json(status),
+      : new URL(req.url).pathname === "/api/status"
+        ? Response.json(status)
+        : Response.json({}, { status: 404 }),
   );
   const stop = screen.getByRole("button", { name: "Arrêt d'urgence : tout arrêter" });
   await userEvent.click(stop);
