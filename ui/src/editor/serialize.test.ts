@@ -321,3 +321,9 @@ test("une branche vide d'un « en parallèle » n'est pas écrite, un « si » s
   const node = (workspaceToProgram(ws, meta).scripts[0].root as unknown as { children: { id: string; condition: unknown }[] }).children.find((c) => c.id === "i");
   expect(node!.condition).toBeNull(); // le moteur le refusera : l'erreur sera posée sur ce bloc (#49)
 });
+
+test("une impulsion sur un relais introuvable reste une impulsion (et non un allumer / éteindre)", () => {
+  const source = program([{ id: "r", type: "relay", target: "robot", action: "trigger", wait_for_end: true }]);
+  loadProgram(ws, source);
+  expect(workspaceToProgram(ws, meta).scripts).toEqual(source.scripts);
+});

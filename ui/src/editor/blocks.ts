@@ -21,6 +21,8 @@ const ERROR_OPTIONS: [string, string][] = [
 /** État d'un bloc de composant, tel que Blockly le copie / annule (`saveExtraState`). */
 export interface ComponentState {
   target: string;
+  /** Composant introuvable : on retient que le nœud était une impulsion, faute de pouvoir le lire dans le catalogue. */
+  trigger?: boolean;
   fire_and_forget?: boolean;
   on_error?: "continue" | "abort";
 }
@@ -30,6 +32,7 @@ export type ComponentKindName = "relay" | "light" | "switch";
 export interface ComponentBlock extends Blockly.Block {
   kind_: ComponentKindName;
   target_: string;
+  fallbackTrigger_?: boolean;
   optionsOpen_: boolean;
   updateShape_(): void;
   toggleOptions_(): void;
@@ -88,10 +91,10 @@ function shape(this: ComponentBlock) {
     head.appendField(`introuvable : ${this.target_}`);
   }
 
-  const push = this.kind_ === "relay" && (found as { mode?: string } | undefined)?.mode === "push";
+  const push = this.kind_ === "relay" && (found ? (found as { mode?: string }).mode === "push" : Boolean(this.fallbackTrigger_));
   if (push) {
     head.appendField("déclencher");
-    if ((found as { animation_s?: number | null }).animation_s) {
+    if (found ? (found as { animation_s?: number | null }).animation_s : this.fallbackTrigger_) {
       head.appendField(new Blockly.FieldCheckbox(false), "WAIT_END").appendField("attendre la fin");
     }
   } else {
@@ -137,10 +140,11 @@ function defineComponentBlock(type: string, kind: ComponentKindName): void {
     // Seule l'identité du composant est dans l'état supplémentaire : les valeurs des champs sont
     // sauvegardées par Blockly lui-même (copier / coller, annuler) et par notre sérialiseur.
     saveExtraState(this: ComponentBlock): ComponentState {
-      return { target: this.target_ };
+      return this.fallbackTrigger_ ? { target: this.target_, trigger: true } : { target: this.target_ };
     },
     loadExtraState(this: ComponentBlock, state: ComponentState) {
       this.target_ = state.target;
+      this.fallbackTrigger_ = state.trigger;
       this.updateShape_();
     },
     toggleOptions_(this: ComponentBlock) {

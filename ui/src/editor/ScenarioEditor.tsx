@@ -51,7 +51,8 @@ export function ScenarioEditor() {
       loadProgram(workspace.current, program);
       const editor = program.editor as { zoom?: number; scroll?: { x: number; y: number } } | null;
       if (editor?.zoom) workspace.current.setScale(editor.zoom);
-      workspace.current.scrollCenter();
+      if (editor?.scroll) workspace.current.scroll(editor.scroll.x, editor.scroll.y);
+      else workspace.current.scrollCenter();
     }
     // Le catalogue ne doit pas recharger le programme : seul un changement de programme le fait.
   }, [program, id, !devices]);
@@ -61,7 +62,7 @@ export function ScenarioEditor() {
     if (!ws || !program) return;
     setBusy(true);
     try {
-      const body = workspaceToProgram(ws, { ...program, name: name.trim() }, { zoom: ws.getScale() });
+      const body = workspaceToProgram(ws, { ...program, name: name.trim() }, { zoom: ws.getScale(), scroll: { x: Math.round(ws.scrollX), y: Math.round(ws.scrollY) } });
       const saved = await unwrap<{ program: Program }>(
         api.PUT("/api/programs/{program_id}", {
           params: { path: { program_id: id } },
