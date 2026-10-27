@@ -58,13 +58,35 @@ class LockOut(BaseModel):
     retry_after_s: int | None = None
 
 
+class ProblemOut(BaseModel):
+    """Un avertissement ou une erreur récents du journal."""
+
+    ts: float
+    level: Literal["WARNING", "ERROR", "CRITICAL"]
+    source: str
+    message: str
+    run_id: str | None = None
+    node_id: str | None = None
+    component_id: str | None = None
+
+
 class Status(BaseModel):
     version: str
+    started_at: float
+    uptime_s: float
+    programs: int
+    triggers: int
     lock: LockOut
     runs: list[RunOut]
     relays: dict[str, bool]
     home_assistant: HomeAssistantStatus
     startup_issues: list[IssueOut]
+    # Lumières ou interrupteurs dont la remise au repos attend Home Assistant.
+    rest_pending: list[str]
+    # Derniers avertissements et erreurs (les plus récents d'abord).
+    recent_problems: list[ProblemOut]
+    # Journal complet (JSON lines, en rotation), ou `null` s'il n'est pas écrit dans un fichier.
+    log_file: str | None = None
 
 
 class Health(BaseModel):

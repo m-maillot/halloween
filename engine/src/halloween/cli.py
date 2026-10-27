@@ -66,6 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("HALLOWEEN_DATA_DIR", DEFAULT_DATA_DIR),
         help="dossier de données (config.json, programs/) [%(default)s]",
     )
+    parser.add_argument(
+        "--log-dir",
+        default=os.environ.get("HALLOWEEN_LOG_DIR"),
+        help="dossier du journal pour `serve` et `api` (HALLOWEEN_LOG_DIR) [<data-dir>/logs]",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="journal JSON détaillé")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -311,6 +316,7 @@ async def cmd_api(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
         ha_dry_run=args.ha_dry_run,
         write=say,
         on_ready=ready,
+        log_file=args.log_file,
     )
     try:
         await run_server(app, args.host, args.port)
@@ -452,12 +458,31 @@ async def _supervised(coro: Awaitable[int]) -> int:
         return EXIT_INTERRUPTED
 
 
+LOG_FILE_NAME = "halloween.log"
+SERVICE_COMMANDS = ("serve", "api")
+
+
+def log_file_for(args: argparse.Namespace) -> Path | None:
+    """Fichier du journal (rotation) des commandes de service ; les autres n'écrivent rien."""
+    if args.command not in SERVICE_COMMANDS:
+        return None
+    return Path(args.log_dir or Path(args.data_dir) / "logs") / LOG_FILE_NAME
+
+
 def main(
     argv: list[str] | None = None, backend: Backend | None = None, out: TextIO | None = None
 ) -> int:
     out = out or sys.stdout
     args = build_parser().parse_args(argv)
-    setup_logging("INFO" if args.verbose else "ERROR", sys.stderr)
+    level = "INFO" if args.verbose else "ERROR"
+    log_file = log_file_for(args)
+    try:
+        setup_logging(level, sys.stderr, log_file)
+    except OSError as exc:  # dossier non inscriptible : le service démarre quand même
+        print(f"Attention : journal en fichier impossible ({exc}).", file=sys.stderr)
+        log_file = None
+        setup_logging(level, sys.stderr)
+    args.log_file = log_file  # None si le fichier n'est pas écrit
     backend = backend or gpio_backend()
     try:
         return asyncio.run(_supervised(COMMANDS[args.command](args, backend, out)))

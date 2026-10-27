@@ -50,3 +50,9 @@ Le jeton d'API se lit avec `sudo cat /var/lib/halloween/api-token`. Mettre à jo
 | Arrêt (`systemctl stop`, extinction) | SIGTERM : scénarios arrêtés, relais éteints, broches libérées (15 s au plus avant SIGKILL) |
 
 Pas de watchdog matériel du Pi (voir la spec). Pendant les quelques secondes d'un gel, les relais gardent leur dernier état : le STOP du bouton physique ne fonctionne pas non plus tant que le moteur est gelé.
+
+### Journal et diagnostic
+
+- Journal complet : `/var/lib/halloween/logs/halloween.log` (JSON lines, rotation 2 Mo × 5 archives). En direct : `tail -f /var/lib/halloween/logs/halloween.log`, ou `journalctl -u halloween-engine` (erreurs seulement).
+- Un run précis : `grep '"run_id": "<id>"' /var/lib/halloween/logs/halloween.log*`.
+- Diagnostic rapide, sans shell : `GET /api/status` (relais, Home Assistant, verrouillage, derniers problèmes).

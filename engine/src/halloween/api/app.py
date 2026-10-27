@@ -7,6 +7,7 @@ Le moteur (`Engine`) démarre et s'arrête avec l'application (lifespan). Toutes
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -37,6 +38,7 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
     write: Callable[[str], None] = print,
     on_ready: Callable[[StartupReport], None] | None = None,
+    log_file: Path | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -78,12 +80,17 @@ def create_app(
 
     @api.get("/status", response_model=schemas.Status, tags=["système"], operation_id="get_status")
     async def get_status(engine: EngineDep) -> schemas.Status:
-        """État du moteur : runs, relais, connexion Home Assistant, problèmes au démarrage."""
+        """Diagnostic rapide : version et durée de service, runs, relais, connexion Home Assistant,
+        verrouillage, problèmes au démarrage et derniers avertissements ou erreurs."""
         ha = engine.ha
         real = isinstance(ha, HttpHAClient)
         settings = engine.config.home_assistant
         return schemas.Status(
             version=__version__,
+            started_at=engine.started_at,
+            uptime_s=round(time.time() - engine.started_at, 1),
+            programs=len(engine.programs),
+            triggers=len(engine.triggers.triggers) if engine.triggers else 0,
             lock=lock.lock_out(engine),
             runs=[schemas.RunOut(**run.to_json()) for run in engine.manager.active],
             relays={r.id: engine.relays.is_on(r.id) for r in engine.config.relays},
@@ -94,6 +101,9 @@ def create_app(
                 last_error=ha.last_error if real else None,
             ),
             startup_issues=[schemas.IssueOut.from_issue(i) for i in engine.report.issues],
+            rest_pending=engine.rest_pending,
+            recent_problems=[schemas.ProblemOut(**p) for p in engine.problems.recent()],
+            log_file=str(log_file) if log_file else None,
         )
 
     api.include_router(components.router)

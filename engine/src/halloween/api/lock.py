@@ -11,8 +11,10 @@ from halloween.api.schemas import LockOut
 from halloween.app import Engine
 from halloween.events import LockChangedEvent
 from halloween.lock import CODE_PATTERN, NoCode
+from halloween.log import get_logger
 
 router = APIRouter(tags=["verrouillage"])
+log = get_logger("lock")
 
 
 class Code(BaseModel):
@@ -56,7 +58,10 @@ async def check_code(engine: Engine, code: str) -> None:
             throttle.success()
             return
         throttle.failure()
+        log.warning("code incorrect")
         if wait := throttle.retry_after():
+            # Une ligne par blocage : les essais refusés ensuite n'inondent pas le journal.
+            log.warning("trop d'essais de code, attente imposée", extra={"retry_after_s": wait})
             raise _too_many(engine, wait)
     raise api_error(401, "code incorrect")
 
@@ -81,6 +86,7 @@ async def lock(engine: EngineDep) -> LockOut:
     except NoCode as exc:
         raise api_error(409, str(exc)) from exc
     if not was_locked:
+        log.info("verrouillé")
         engine.hub.publish(LockChangedEvent(locked=True))
     return lock_out(engine)
 
@@ -103,6 +109,7 @@ async def unlock(body: Code, engine: EngineDep) -> LockOut:
     was_locked = engine.lock.locked
     engine.lock.unlock()
     if was_locked:
+        log.info("déverrouillé")
         engine.hub.publish(LockChangedEvent(locked=False))
     return lock_out(engine)
 
@@ -124,4 +131,5 @@ async def put_lock_code(body: NewCode, engine: EngineDep) -> LockOut:
             raise api_error(401, "l'ancien code est obligatoire pour changer le code")
         await check_code(engine, body.old_code)
     engine.lock.set_code(body.new_code)
+    log.info("code modifié")
     return lock_out(engine)
