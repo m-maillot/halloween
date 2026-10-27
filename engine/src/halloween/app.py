@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -40,7 +42,7 @@ from halloween.events import (
 )
 from halloween.issues import Issue, errors
 from halloween.lock import LockState, Throttle
-from halloween.log import current_context, get_logger
+from halloween.log import ROOT_LOGGER, ProblemLog, current_context, get_logger
 from halloween.program.models import ActionNode, Program
 from halloween.program.runs import RunEvent, RunManager
 from halloween.program.validation import validate_program
@@ -99,6 +101,9 @@ class Engine:
         self.hub = EventHub()
         self.lock = LockState.in_dir(store.root)
         self.throttle = Throttle()
+        self.problems = ProblemLog()
+        self.started_at = time.time()
+        self.rest_pending: list[str] = []
         self._reconfiguring = asyncio.Lock()
         # Sérialise les modifications de configuration faites par l'API (lecture puis écriture).
         self.config_lock = asyncio.Lock()
@@ -138,6 +143,7 @@ class Engine:
     async def _build(self) -> StartupReport:
         """Crée pilotes, gestionnaire et déclencheurs d'après `self.config` (ordre en tête)."""
         report = StartupReport()
+        self._attach_problem_log()
         # Pilotes : les sorties sont au repos dès leur création ; on le garantit aussitôt.
         self._relays = self._backend.relays(self.config)
         self._buttons = self._backend.buttons(self.config)
@@ -165,6 +171,7 @@ class Engine:
         )
 
         report.rest_pending = await self.manager.reset_all()
+        self.rest_pending = list(report.rest_pending)
         if report.rest_pending:
             self._retry = asyncio.ensure_future(self._retry_rest(list(report.rest_pending)))
 
@@ -186,6 +193,7 @@ class Engine:
     async def stop(self) -> None:
         """Arrêt propre : plus de réaction, tout s'arrête, relais éteints, broches libérées."""
         self.ready.clear()
+        self._detach_problem_log()
         if self._retry is not None:
             self._retry.cancel()
             await asyncio.gather(self._retry, return_exceptions=True)
@@ -250,6 +258,14 @@ class Engine:
         self.hub.publish(ComponentChangedEvent(kind="catalog"))
 
     # ------------------------------------------------------------------ événements temps réel
+
+    def _attach_problem_log(self) -> None:
+        logger = logging.getLogger(ROOT_LOGGER)
+        if self.problems not in logger.handlers:
+            logger.addHandler(self.problems)
+
+    def _detach_problem_log(self) -> None:
+        logging.getLogger(ROOT_LOGGER).removeHandler(self.problems)
 
     def _on_run_event(self, event: RunEvent) -> None:
         for item in from_run_event(event):
@@ -352,6 +368,7 @@ class Engine:
             delay = next(delays, delay)
             await asyncio.sleep(delay)
             pending = await self.manager.reset_unowned(pending)
+            self.rest_pending = list(pending)
             if not pending:
                 log.info("remise au repos terminée après nouvel essai")
                 return

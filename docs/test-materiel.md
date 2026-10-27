@@ -187,4 +187,4 @@ Prérequis : §1 à §9 validés, jeton Home Assistant renseigné si besoin.
 4. **Gel** : lancer un scénario, puis `sudo systemctl kill -s SIGSTOP halloween-engine` (gèle le processus). Attendu : après 20 s `journalctl -u halloween-engine` indique « Watchdog timeout » ; un processus gelé par SIGSTOP ne traite pas le SIGABRT de `systemd`, qui l'achève en SIGKILL après `TimeoutAbortSec` (15 s) : relance au plus tard ~35 s après le gel, relais éteints.
 5. **Redémarrage du Pi** (`sudo reboot`) : le service démarre seul, relais éteints, bouton actif ; le planning reprend selon la règle de rattrapage.
 6. **Arrêt propre** : `sudo systemctl stop halloween-engine` pendant un scénario : relais éteints immédiatement, aucune erreur dans le journal.
-
+7. **Journal et `/status`** : lancer un scénario, puis `tail -n 5 /var/lib/halloween/logs/halloween.log` (lignes « run démarré » / « run terminé » avec `run_id`). `GET /api/status` : relais, `home_assistant.last_ok_at`, `uptime_s`. Couper Home Assistant (ou changer l'URL) : `last_error` explique la cause et les actions en échec apparaissent dans `recent_problems`.

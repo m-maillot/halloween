@@ -1861,6 +1861,73 @@
         "title": "ParallelNode",
         "type": "object"
       },
+      "ProblemOut": {
+        "description": "Un avertissement ou une erreur récents du journal.",
+        "properties": {
+          "component_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Id"
+          },
+          "level": {
+            "enum": [
+              "WARNING",
+              "ERROR",
+              "CRITICAL"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "number"
+          }
+        },
+        "required": [
+          "ts",
+          "level",
+          "source",
+          "message"
+        ],
+        "title": "ProblemOut",
+        "type": "object"
+      },
       "Program": {
         "additionalProperties": false,
         "properties": {
@@ -3189,12 +3256,41 @@
           "lock": {
             "$ref": "#/components/schemas/LockOut"
           },
+          "log_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log File"
+          },
+          "programs": {
+            "title": "Programs",
+            "type": "integer"
+          },
+          "recent_problems": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemOut"
+            },
+            "title": "Recent Problems",
+            "type": "array"
+          },
           "relays": {
             "additionalProperties": {
               "type": "boolean"
             },
             "title": "Relays",
             "type": "object"
+          },
+          "rest_pending": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rest Pending",
+            "type": "array"
           },
           "runs": {
             "items": {
@@ -3203,12 +3299,24 @@
             "title": "Runs",
             "type": "array"
           },
+          "started_at": {
+            "title": "Started At",
+            "type": "number"
+          },
           "startup_issues": {
             "items": {
               "$ref": "#/components/schemas/IssueOut"
             },
             "title": "Startup Issues",
             "type": "array"
+          },
+          "triggers": {
+            "title": "Triggers",
+            "type": "integer"
+          },
+          "uptime_s": {
+            "title": "Uptime S",
+            "type": "number"
           },
           "version": {
             "title": "Version",
@@ -3217,11 +3325,17 @@
         },
         "required": [
           "version",
+          "started_at",
+          "uptime_s",
+          "programs",
+          "triggers",
           "lock",
           "runs",
           "relays",
           "home_assistant",
-          "startup_issues"
+          "startup_issues",
+          "rest_pending",
+          "recent_problems"
         ],
         "title": "Status",
         "type": "object"
@@ -5840,7 +5954,7 @@
     },
     "/api/status": {
       "get": {
-        "description": "État du moteur : runs, relais, connexion Home Assistant, problèmes au démarrage.",
+        "description": "Diagnostic rapide : version et durée de service, runs, relais, connexion Home Assistant,\nverrouillage, problèmes au démarrage et derniers avertissements ou erreurs.",
         "operationId": "get_status",
         "responses": {
           "200": {
