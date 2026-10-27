@@ -27,6 +27,7 @@ def test_unit_restarts_always_and_has_a_watchdog():
     assert service["Restart"] == "always"
     assert int(service["WatchdogSec"]) >= 5
     assert int(service["TimeoutStopSec"]) > 0
+    assert service["SuccessExitStatus"] == "130"  # code de sortie sur SIGTERM (voir cli.py)
     assert "halloween-cli api" in service["ExecStart"]
     assert service["StateDirectory"] == "halloween"
     assert "gpio" in service["SupplementaryGroups"]

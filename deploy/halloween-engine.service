@@ -28,6 +28,8 @@ RestartSec=2
 WatchdogSec=20
 # Arrêt propre : SIGTERM éteint les relais ; au-delà de ce délai, SIGKILL.
 TimeoutStopSec=15
+# Le moteur sort avec 130 quand il s'arrête sur SIGTERM : c'est un arrêt normal, pas un échec.
+SuccessExitStatus=130
 
 # Durcissement (le service n'a besoin que du réseau, de /dev/gpiochip* et de son dossier).
 NoNewPrivileges=yes
