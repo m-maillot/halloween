@@ -23,7 +23,7 @@ Comptes utilisateurs, édition collaborative, historique de versions, applicatio
 | Sujet | Choix | Raison |
 |---|---|---|
 | Éditeur de blocs | **Blockly** | bibliothèque éprouvée, blocs personnalisables (champs image, menus), sérialisation intégrée |
-| Application | SPA **React** + TypeScript (Vite) ; `react-blockly` ou intégration directe de Blockly | build statique léger, compétence existante |
+| Application | SPA **React** + TypeScript (Vite) ; **intégration directe de Blockly** (`blockly/core`, rendu Zelos, thème sombre) dans un composant React mince, sans `react-blockly` *(décision du prototype, lot 9)* | build statique léger, compétence existante. L'intégration directe évite une dépendance qui suit mal les versions de Blockly ; la sérialisation, testée sans navigateur sur un espace de travail non affiché, ne dépend pas de React |
 | Hébergement | fichiers statiques servis par le moteur FastAPI sur le même port | même origine, pas de CORS, un seul service à déployer |
 | Temps réel | WebSocket `/api/events` du moteur | surlignage du bloc actif, état des composants |
 | Authentification | jeton statique du moteur, saisi une fois et gardé dans le navigateur | usage réseau local |

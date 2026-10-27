@@ -86,7 +86,9 @@ export function describeError(error: unknown): Described {
 
 /** Déballe un résultat `openapi-fetch` : les données, ou une `ApiError`. */
 export async function unwrap<T>(
-  result: Promise<{ data?: T; error?: unknown; response: Response }>,
+  // `data` volontairement non typé : les types récursifs du contrat (blocs imbriqués) ne se
+  // laissent pas comparer ; l'appelant nomme le type attendu.
+  result: Promise<{ data?: unknown; error?: unknown; response: Response }>,
 ): Promise<T> {
   const { data, error, response } = await result;
   if (!response.ok) throw new ApiError(response.status, error);
