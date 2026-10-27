@@ -279,9 +279,11 @@ async def cmd_api(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
     from halloween.api.auth import load_or_create_token
     from halloween.api.server import run_server
     from halloween.app import StartupReport
+    from halloween.watchdog import Watchdog
 
     store = Store(Path(args.data_dir))
     store.initialize()
+    watchdog = Watchdog()
     try:
         token, origin = load_or_create_token(store.root)
     except ValueError as exc:
@@ -297,6 +299,8 @@ async def cmd_api(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
         say(f"Moteur prêt : {report.programs} programme(s), {report.triggers} déclencheur(s).")
         say(f"API : http://{args.host}:{args.port}/api  (jeton : {origin})")
         say("Ctrl+C ou SIGTERM pour arrêter.")
+        # Prêt seulement ici : relais au repos, programmes et déclencheurs chargés.
+        watchdog.ready(f"{report.programs} programme(s), {report.triggers} déclencheur(s)")
 
     ui_dir = Path(args.ui_dir) if args.ui_dir else None
     app = create_app(
@@ -311,6 +315,7 @@ async def cmd_api(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
     try:
         await run_server(app, args.host, args.port)
     finally:
+        await watchdog.stop()
         say("Service arrêté, relais éteints.")
     failure = getattr(app.state, "startup_error", None)
     if failure is not None:
