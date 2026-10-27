@@ -9,10 +9,28 @@ export function buildToolbox(devices: Devices | null) {
   return {
     kind: "categoryToolbox",
     contents: [
-      { kind: "category", name: "Contrôle", colour: "36", contents: [{ kind: "block", type: "hw_start" }] },
+      {
+        kind: "category",
+        name: "Contrôle",
+        colour: "36",
+        contents: ["hw_start", "hw_parallel", "hw_repeat", "hw_repeat_forever", "hw_wait", "hw_wait_random", "hw_if", "hw_wait_until", "hw_random_choice", "hw_call"].map(
+          (type) => ({ kind: "block", type }),
+        ),
+      },
+      {
+        kind: "category",
+        name: "Conditions",
+        colour: "290",
+        contents: [
+          ...(devices?.buttons ?? []).map((b) => ({ kind: "block", type: "hw_cond_button", extraState: { button: b.id } })),
+          ...(devices?.relays ?? []).map((r) => ({ kind: "block", type: "hw_cond_relay_is", extraState: { relay: r.id } })),
+          { kind: "block", type: "hw_cond_random" },
+        ],
+      },
       { kind: "category", name: "Relais", colour: "0", contents: entries("hw_relay", devices?.relays) },
       { kind: "category", name: "Lumières", colour: "48", contents: entries("hw_light", devices?.lights) },
       { kind: "category", name: "Interrupteurs", colour: "200", contents: entries("hw_switch", devices?.switches) },
+      { kind: "category", name: "Divers", colour: "230", contents: [{ kind: "block", type: "hw_log" }] },
     ],
   };
 }

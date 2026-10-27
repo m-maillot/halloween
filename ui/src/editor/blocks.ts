@@ -2,6 +2,7 @@ import * as Blockly from "blockly/core";
 import { FieldColour } from "@blockly/field-colour";
 import { Settings } from "lucide-react";
 import { findLight, findRelay, findSwitch } from "./catalog";
+import { registerControlBlocks } from "./controlBlocks";
 import { iconSource, lucideSource } from "./icons";
 
 export const HUE = { control: 36, relay: 0, light: 48, switch: 200, button: 290, misc: 230 };
@@ -166,6 +167,7 @@ export function registerBlocks(): void {
       this.setTooltip("Début d'un script. Plusieurs scripts s'exécutent en parallèle.");
     },
   };
+  registerControlBlocks();
   defineComponentBlock("hw_relay", "relay");
   defineComponentBlock("hw_light", "light");
   defineComponentBlock("hw_switch", "switch");
