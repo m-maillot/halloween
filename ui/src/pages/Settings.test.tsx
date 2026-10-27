@@ -238,3 +238,21 @@ test("verrouillé : les réglages sont en lecture seule", async () => {
   expect(within(await screen.findByRole("group", { name: "Guirlande" })).getByLabelText("À l'état de repos")).toBeDisabled();
   expect(within(section("Code de verrouillage")).getByLabelText("Nouveau code")).toBeDisabled();
 });
+
+// ------------------------------------------------------------------ à propos
+
+test("À propos : version, origine des icônes et logiciels tiers sont affichés", async () => {
+  await openApp();
+  const about = section("À propos");
+  expect(within(about).getByText(/moteur version 0.1.0/)).toBeInTheDocument();
+  const icons = within(about).getByRole("list", { name: "Origine des icônes" });
+  const [lucide, feather, project] = within(icons).getAllByRole("listitem");
+  expect(lucide).toHaveTextContent("Lucide — ");
+  expect(lucide).toHaveTextContent("licence ISC");
+  expect(feather).toHaveTextContent("Cole Bemis");
+  expect(project).toHaveTextContent("citrouille");
+  const software = within(about).getByRole("list", { name: "Logiciels embarqués" });
+  const credit = (name: RegExp) => within(software).getAllByRole("listitem").find((li) => name.test(li.textContent ?? ""))!;
+  expect(credit(/^Blockly/)).toHaveTextContent("Apache-2.0");
+  expect(credit(/^Fraunces/)).toHaveTextContent("SIL OFL 1.1");
+});

@@ -1,4 +1,5 @@
 import { useEngine } from "../engine/EngineProvider";
+import { AboutSection } from "../settings/AboutSection";
 import { EngineTokenSection } from "../settings/EngineTokenSection";
 import { HomeAssistantSection } from "../settings/HomeAssistantSection";
 import { LockCodeSection } from "../settings/LockCodeSection";
@@ -19,6 +20,7 @@ export function Settings() {
       <RestStateSection disabled={locked} />
       <LockCodeSection disabled={locked} />
       <EngineTokenSection />
+      <AboutSection />
     </>
   );
 }
