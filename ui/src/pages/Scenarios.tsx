@@ -7,6 +7,7 @@ import type { components } from "../api/schema";
 import { Button, Card, Field, Modal } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { ScenarioEditor } from "../editor/ScenarioEditor";
+import { useEngine } from "../engine/EngineProvider";
 
 type Summary = components["schemas"]["ProgramSummary"];
 
@@ -19,6 +20,8 @@ function List() {
   const toasts = useToasts();
   const navigate = useNavigate();
   const [programs, setPrograms] = useState<Summary[] | null>(null);
+  const { status } = useEngine();
+  const locked = status?.lock.locked ?? false;
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
 
@@ -56,7 +59,7 @@ function List() {
     <>
       <div className="page-head">
         <h1>Scénarios</h1>
-        <Button variant="primary" onClick={() => setCreating(true)}>
+        <Button variant="primary" disabled={locked} onClick={() => setCreating(true)}>
           <Plus size={18} aria-hidden="true" /> Nouveau scénario
         </Button>
       </div>

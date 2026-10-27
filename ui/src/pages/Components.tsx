@@ -6,6 +6,7 @@ import { ComponentForm } from "../catalog/ComponentForm";
 import type { Existing } from "../catalog/draft";
 import { ComponentImage, KIND_LABEL, type Kind } from "../catalog/icons";
 import { Button, Card, Pill } from "../components/ui";
+import { useEngine } from "../engine/EngineProvider";
 
 type Relay = Devices["relays"][number];
 type Button_ = Devices["buttons"][number];
@@ -60,6 +61,8 @@ function isKind(value: string | null): value is Kind {
 
 export function Components() {
   const { devices } = useCatalog();
+  const { status } = useEngine();
+  const locked = status?.lock.locked ?? false;
   const [params, setParams] = useSearchParams();
   const requested = params.get("type");
   const kind: Kind = isKind(requested) ? requested : "relays";
@@ -70,7 +73,7 @@ export function Components() {
     <>
       <div className="page-head">
         <h1>Composants</h1>
-        <Button variant="primary" disabled={!devices} onClick={() => setEditing("new")}>
+        <Button variant="primary" disabled={!devices || locked} onClick={() => setEditing("new")}>
           <Plus size={18} aria-hidden="true" /> Ajouter {SINGULAR[kind]}
         </Button>
       </div>

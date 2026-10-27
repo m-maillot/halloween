@@ -585,3 +585,19 @@ test("une autre erreur d'enregistrement est une notification, pas un conflit", a
   expect(await screen.findByText("disque plein")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+
+test("verrouillé : l'éditeur est en lecture seule et n'enregistre pas (Ctrl+S compris)", async () => {
+  vi.unstubAllGlobals();
+  calls = stubEngine(({ path, method }) => {
+    if (path === "/api/status") return { ...STATUS, lock: { locked: true, has_code: true } };
+    if (path === "/api/devices") return devices;
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") return program([relay("a", "on")]);
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+  });
+  await open();
+  expect(shared.readOnly).toBe(true);
+  expect(save()).toBeDisabled();
+  await userEvent.setup().keyboard("{Control>}s{/Control}");
+  expect(puts()).toHaveLength(0);
+});

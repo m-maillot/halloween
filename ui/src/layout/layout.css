@@ -649,3 +649,38 @@ a.btn {
 .rule {
   margin: 0 0 10px;
 }
+
+.keypad {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.keypad__input {
+  text-align: center;
+  font-size: 22px;
+  letter-spacing: 0.4em;
+}
+.keypad__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.keypad__key {
+  min-height: var(--target-large);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: 600 24px var(--font-body);
+  cursor: pointer;
+}
+.keypad__key:hover:not(:disabled) {
+  background: var(--color-surface-active);
+}
+.keypad__key:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.keypad__key--ghost {
+  background: transparent;
+}

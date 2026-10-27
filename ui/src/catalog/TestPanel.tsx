@@ -17,7 +17,8 @@ function rgbOf(hex: string): [number, number, number] {
 /** Test manuel du composant enregistré (le formulaire non enregistré n'est pas pris en compte). */
 export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
   const toasts = useToasts();
-  const { subscribe } = useEngine();
+  const { subscribe, status } = useEngine();
+  const locked = status?.lock.locked ?? false; // le moteur refuse les tests manuels quand il est verrouillé
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
@@ -83,13 +84,13 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
           )}
           <div className="form-actions">
             {relay?.mode === "push" ? (
-              <Button disabled={busy} onClick={() => void run({ action: "trigger" })}>
+              <Button disabled={busy || locked} onClick={() => void run({ action: "trigger" })}>
                 Déclencher
               </Button>
             ) : (
               <>
                 <Button
-                  disabled={busy}
+                  disabled={busy || locked}
                   onClick={() =>
                     void run({
                       action: "on",
@@ -101,7 +102,7 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
                 >
                   Allumer
                 </Button>
-                <Button disabled={busy} onClick={() => void run({ action: "off" })}>
+                <Button disabled={busy || locked} onClick={() => void run({ action: "off" })}>
                   Éteindre
                 </Button>
               </>
