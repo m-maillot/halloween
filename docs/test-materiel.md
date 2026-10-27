@@ -132,7 +132,32 @@ uv run halloween-cli run scenario-principal
 - [ ] **Ctrl+C en plein scénario** : tous les relais retombent immédiatement et la commande se termine.
 - [ ] `kill -TERM <pid>` (ou arrêt du service) a le même effet.
 
-## 8. Ce qu'il faut me renvoyer
+## 8. Moteur en continu et reprise après redémarrage
+
+Le moteur complet (boutons et planning actifs) se lance avec :
+
+```bash
+uv run halloween-cli serve
+```
+
+Il remet **tout au repos** avant d'activer quoi que ce soit (relais éteints, lumières à leur `rest_state`), charge les programmes et les déclencheurs, **écarte et signale** ceux qui sont invalides, puis attend. Pour créer un déclencheur de test, écrire `~/halloween-data/triggers.json` :
+
+```json
+[
+  { "id": "go", "source": "button", "button": "bouton_principal", "event": "short", "program": "scenario-principal" },
+  { "id": "halt", "source": "button", "button": "bouton_principal", "event": "long", "action": "stop" }
+]
+```
+
+- [ ] `serve` affiche « Moteur prêt : 1 programme(s), 2 déclencheur(s) ».
+- [ ] Un appui **court** sur le bouton lance le scénario ; un appui **long** (> 0,8 s) l'arrête et tous les relais retombent en moins d'une seconde.
+- [ ] **Ctrl+C** : « Moteur arrêté, relais éteints. »
+- [ ] **Redémarrage brutal** : lancer un scénario, puis débrancher l'alimentation du Pi (ou `sudo reboot -f`). Au redémarrage, relancer `serve` : tous les relais sont au repos et le bouton fonctionne. *Le démarrage automatique au boot (service) vient avec le lot 6.*
+- [ ] Si Home Assistant démarre plus lentement que le Pi : `serve` indique « remise au repos de … retentée en arrière-plan » et l'applique dès qu'il répond (essais pendant 10 minutes).
+
+> Un planning (`"source": "schedule"`) dépend de l'heure du Pi : sans horloge à pile, elle n'est fiable qu'**après la synchronisation réseau**. Une échéance dépassée de plus d'une minute (par exemple à cause du recalage) est sautée, pas lancée en retard.
+
+## 9. Ce qu'il faut me renvoyer
 
 Si quelque chose ne correspond pas, copier-coller :
 

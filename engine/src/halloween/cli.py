@@ -6,6 +6,7 @@
     halloween-cli relay fantome trigger           # impulsion
     halloween-cli button watch                    # affiche les appuis
     halloween-cli gpio-check [--active]           # compatibilité GPIO du Pi utilisé
+    halloween-cli serve                           # moteur en continu : reprise, boutons, planning
     halloween-cli ha-check [--active]             # Home Assistant : connexion, entités, capacités
     halloween-cli simulate scenario-principal     # timeline sans rien actionner
     halloween-cli run scenario-principal          # exécution réelle [--ha-dry-run]
@@ -25,16 +26,15 @@ import signal
 import sys
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
 from pydantic import ValidationError
 
+from halloween.backend import Backend, gpio_backend
 from halloween.config.models import AppConfig
 from halloween.config.validation import validate_config
-from halloween.drivers.base import ButtonDriver, ButtonEvent, HAClient, RelayDriver
-from halloween.drivers.dryrun import DryRunHAClient
+from halloween.drivers.base import ButtonDriver, ButtonEvent, RelayDriver
 from halloween.drivers.homeassistant import TOKEN_ENV, HttpHAClient
 from halloween.issues import errors, warnings
 from halloween.log import setup_logging
@@ -47,40 +47,6 @@ from halloween.store import Store
 DEFAULT_DATA_DIR = "/var/lib/halloween"
 
 EXIT_OK, EXIT_FAILED, EXIT_USAGE, EXIT_HARDWARE, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
-
-
-@dataclass
-class Backend:
-    """Fabriques de pilotes : GPIO réels par défaut, pilotes fictifs dans les tests."""
-
-    relays: Callable[[AppConfig], RelayDriver]
-    buttons: Callable[[AppConfig], ButtonDriver]
-    # (config, écriture de messages, forcer le mode simulé)
-    ha: Callable[[AppConfig, Callable[[str], None], bool], HAClient]
-
-
-def gpio_backend() -> Backend:
-    def relays(config: AppConfig) -> RelayDriver:
-        from halloween.drivers.gpio import GpioRelayDriver
-
-        return GpioRelayDriver(config.relays)
-
-    def buttons(config: AppConfig) -> ButtonDriver:
-        from halloween.drivers.gpio import GpioButtonDriver
-
-        return GpioButtonDriver(config.buttons)
-
-    def ha(config: AppConfig, write: Callable[[str], None], dry_run: bool) -> HAClient:
-        settings = config.home_assistant
-        if dry_run or settings is None:
-            return DryRunHAClient(write)
-        if not (os.environ.get(TOKEN_ENV) or settings.token):
-            write("Home Assistant : aucun jeton configuré, appels simulés")
-            return DryRunHAClient(write)
-        write(f"Home Assistant : appels réels vers {settings.url}")
-        return HttpHAClient.from_config(settings)
-
-    return Backend(relays, buttons, ha)
 
 
 class CliError(Exception):
@@ -119,6 +85,9 @@ def build_parser() -> argparse.ArgumentParser:
         "et attend un appui sur chaque bouton",
     )
     check.add_argument("--press-timeout", type=float, default=10.0, help="attente d'un appui (s)")
+
+    serve = sub.add_parser("serve", help="lancer le moteur (boutons, planning) en continu")
+    serve.add_argument("--ha-dry-run", action="store_true", help="n'envoie rien à Home Assistant")
 
     ha_check = sub.add_parser(
         "ha-check", help="vérifier Home Assistant et les capacités des lumières"
@@ -254,6 +223,38 @@ async def cmd_ha_check(args: argparse.Namespace, backend: Backend, out: TextIO) 
         await client.close()
 
 
+async def cmd_serve(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
+    """Lance le moteur en continu (reprise, boutons, planning) jusqu'à Ctrl+C / SIGTERM."""
+    from halloween.app import Engine, StartupError
+
+    engine = Engine(
+        Store(Path(args.data_dir)), backend, lambda line: print(line, file=out), args.ha_dry_run
+    )
+    try:
+        report = await engine.start()
+    except StartupError as exc:
+        await engine.stop()
+        raise CliError(str(exc)) from exc
+    try:
+        for issue in report.issues:
+            tag = "attention" if issue.severity == "warning" else "ÉCARTÉ"
+            print(f"  {tag} : {issue.message}", file=out)
+        pending = (
+            f" ; remise au repos de {', '.join(report.rest_pending)} retentée en arrière-plan"
+            if report.rest_pending
+            else ""
+        )
+        counts = f"{report.programs} programme(s), {report.triggers} déclencheur(s)"
+        print(f"Moteur prêt : {counts}{pending}.", file=out)
+        print("Ctrl+C ou SIGTERM pour arrêter.", file=out)
+        out.flush()
+        await _sleep(None)
+    finally:
+        await engine.stop()
+        print("Moteur arrêté, relais éteints.", file=out)
+    return EXIT_OK
+
+
 async def cmd_button_watch(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
     _, config = _load(args)
     if not config.buttons:
@@ -341,6 +342,7 @@ COMMANDS: dict[str, Callable[[argparse.Namespace, Backend, TextIO], Awaitable[in
     "ha-check": cmd_ha_check,
     "relay": cmd_relay,
     "run": cmd_run,
+    "serve": cmd_serve,
     "simulate": cmd_simulate,
 }
 
