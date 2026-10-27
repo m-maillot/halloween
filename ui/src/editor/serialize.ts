@@ -79,8 +79,78 @@ export function stackToNode(first: Blockly.Block | null, container: string): Nod
   return nodes.length === 1 ? nodes[0] : { id: container, type: "sequence", children: nodes };
 }
 
+/** Contenu d'une entrée « instructions » : un nœud, ou une séquence vide (jamais `null`, le moteur l'exige). */
+function inputNode(block: Blockly.Block, input: string, slot: string): Node {
+  const first = block.getInputTargetBlock(input);
+  return stackToNode(first, containerId(nodeId(block), slot)) ?? { id: containerId(nodeId(block), slot), type: "sequence", children: [] };
+}
+
+const round = (value: number, digits: number) => Math.round(value * 10 ** digits) / 10 ** digits;
+const numberField = (block: Blockly.Block, name: string) => Number(block.getFieldValue(name));
+
+function conditionNode(block: Blockly.Block | null): Node | null {
+  if (!block) return null;
+  switch (block.type) {
+    case "hw_cond_button":
+      return { id: block.getFieldValue("BUTTON"), type: "button", event: block.getFieldValue("EVENT") };
+    case "hw_cond_relay_is":
+      return { id: block.getFieldValue("RELAY"), type: "relay_is", state: block.getFieldValue("STATE") };
+    case "hw_cond_random":
+      return { type: "random", probability: round(numberField(block, "PERCENT") / 100, 6) } as unknown as Node;
+    default:
+      throw new Error(`condition inconnue : ${block.type}`);
+  }
+}
+
 export function blockToNode(block: Blockly.Block): Node {
-  return leaf(block);
+  const id = nodeId(block);
+  switch (block.type) {
+    case "hw_parallel": {
+      const count = (block as unknown as { count_: number }).count_;
+      const children: Node[] = [];
+      for (let i = 0; i < count; i++) {
+        const child = stackToNode(block.getInputTargetBlock(`BRANCH${i}`), containerId(id, `b${i}`));
+        if (child) children.push(child); // une branche vide n'exécute rien : elle n'est pas écrite
+      }
+      const node: Node = { id, type: "parallel", children };
+      if (block.getFieldValue("UNTIL") === "first") node.until = "first";
+      return node;
+    }
+    case "hw_random_choice": {
+      const count = (block as unknown as { count_: number }).count_;
+      const choices: { weight: number; child: Node }[] = [];
+      for (let i = 0; i < count; i++) {
+        const child = stackToNode(block.getInputTargetBlock(`CHOICE${i}`), containerId(id, `c${i}`));
+        if (child) choices.push({ weight: numberField(block, `WEIGHT${i}`), child });
+      }
+      return { id, type: "random_choice", choices };
+    }
+    case "hw_repeat":
+      return { id, type: "repeat", times: numberField(block, "TIMES"), child: inputNode(block, "DO", "do") };
+    case "hw_repeat_forever":
+      return { id, type: "repeat", forever: true, child: inputNode(block, "DO", "do") };
+    case "hw_wait":
+      return { id, type: "wait", seconds: numberField(block, "SECONDS") };
+    case "hw_wait_random":
+      return { id, type: "wait", min: numberField(block, "MIN"), max: numberField(block, "MAX") };
+    case "hw_if": {
+      const node: Node = { id, type: "if", condition: conditionNode(block.getInputTargetBlock("COND")), then: inputNode(block, "THEN", "then") };
+      if (block.getInputTargetBlock("ELSE")) node.else = inputNode(block, "ELSE", "else");
+      return node;
+    }
+    case "hw_wait_until": {
+      const node: Node = { id, type: "wait_until", condition: conditionNode(block.getInputTargetBlock("COND")) };
+      const timeout = numberField(block, "TIMEOUT");
+      if (timeout > 0) node.timeout_s = timeout;
+      return node;
+    }
+    case "hw_call":
+      return { id, type: "call", program_id: block.getFieldValue("PROGRAM") };
+    case "hw_log":
+      return { id, type: "log", message: block.getFieldValue("MESSAGE") };
+    default:
+      return leaf(block);
+  }
 }
 
 export interface ProgramMeta {
@@ -152,6 +222,28 @@ function attach(workspace: Blockly.Workspace, node: Node, previous: Blockly.Bloc
   return block;
 }
 
+function plugCondition(workspace: Blockly.Workspace, parent: Blockly.Block, condition: Node | null): void {
+  if (!condition) return;
+  let block: Blockly.Block;
+  switch (condition.type) {
+    case "button":
+      block = create(workspace, "hw_cond_button", `${parent.id}_cond`, { button: condition.id });
+      block.setFieldValue(String(condition.event), "EVENT");
+      break;
+    case "relay_is":
+      block = create(workspace, "hw_cond_relay_is", `${parent.id}_cond`, { relay: condition.id });
+      block.setFieldValue(String(condition.state), "STATE");
+      break;
+    case "random":
+      block = create(workspace, "hw_cond_random", `${parent.id}_cond`);
+      block.setFieldValue(String(round((condition.probability as number) * 100, 4)), "PERCENT");
+      break;
+    default:
+      throw new Error(`condition non prise en charge : ${String(condition.type)}`);
+  }
+  parent.getInput("COND")!.connection!.connect(block.outputConnection!);
+}
+
 function nodeToBlock(workspace: Blockly.Workspace, node: Node): Blockly.Block {
   switch (node.type) {
     case "relay":
@@ -182,6 +274,59 @@ function nodeToBlock(workspace: Blockly.Workspace, node: Node): Blockly.Block {
           set("TRANS", String(node.transition));
         }
       }
+      return block;
+    }
+    case "parallel": {
+      const children = (node.children as Node[]) ?? [];
+      const block = create(workspace, "hw_parallel", node.id, { count: children.length });
+      if (node.until === "first") block.setFieldValue("first", "UNTIL");
+      children.forEach((child, i) => attach(workspace, child, null, block.getInput(`BRANCH${i}`)));
+      return block;
+    }
+    case "random_choice": {
+      const choices = (node.choices as { weight?: number; child: Node }[]) ?? [];
+      const block = create(workspace, "hw_random_choice", node.id, { count: choices.length });
+      choices.forEach((choice, i) => {
+        block.setFieldValue(String(choice.weight ?? 1), `WEIGHT${i}`);
+        attach(workspace, choice.child, null, block.getInput(`CHOICE${i}`));
+      });
+      return block;
+    }
+    case "repeat": {
+      const block = create(workspace, node.forever ? "hw_repeat_forever" : "hw_repeat", node.id);
+      if (!node.forever && node.times != null) block.setFieldValue(String(node.times), "TIMES");
+      attach(workspace, node.child as Node, null, block.getInput("DO"));
+      return block;
+    }
+    case "wait": {
+      if (node.seconds != null) {
+        const block = create(workspace, "hw_wait", node.id);
+        block.setFieldValue(String(node.seconds), "SECONDS");
+        return block;
+      }
+      const block = create(workspace, "hw_wait_random", node.id);
+      block.setFieldValue(String(node.min ?? 0), "MIN");
+      block.setFieldValue(String(node.max ?? 0), "MAX");
+      return block;
+    }
+    case "if": {
+      const block = create(workspace, "hw_if", node.id);
+      plugCondition(workspace, block, node.condition as Node | null);
+      attach(workspace, node.then as Node, null, block.getInput("THEN"));
+      if (node.else) attach(workspace, node.else as Node, null, block.getInput("ELSE"));
+      return block;
+    }
+    case "wait_until": {
+      const block = create(workspace, "hw_wait_until", node.id);
+      plugCondition(workspace, block, node.condition as Node | null);
+      if (node.timeout_s != null) block.setFieldValue(String(node.timeout_s), "TIMEOUT");
+      return block;
+    }
+    case "call":
+      return create(workspace, "hw_call", node.id, { program_id: node.program_id });
+    case "log": {
+      const block = create(workspace, "hw_log", node.id);
+      block.setFieldValue(String(node.message ?? ""), "MESSAGE");
       return block;
     }
     default:

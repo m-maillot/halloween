@@ -196,3 +196,128 @@ test("le catalogue modifié met les blocs à jour (relais devenu impulsion)", as
   refreshComponentBlocks(ws);
   expect(ws.getBlockById("n2")!.getField("STATE")).toBeNull();
 });
+
+// ------------------------------------------------------------------ blocs de contrôle
+
+import { setPrograms } from "./catalog";
+
+/** Programme de l'annexe de la spec 1 (§13), tel qu'écrit dans la spec. */
+const ANNEX: Program = {
+  schema: 1,
+  id: "scenario-principal",
+  name: "Scénario principal",
+  max_duration_s: 90,
+  on_end: "reset",
+  scripts: [
+    {
+      id: "s1",
+      hat: { type: "start" },
+      root: {
+        id: "n1",
+        type: "sequence",
+        children: [
+          { id: "n2", type: "light", target: "bandeau", state: "on", rgb_color: [255, 0, 0], brightness: 40, transition: 2 },
+          { id: "n3", type: "wait", seconds: 3 },
+          { id: "n4", type: "parallel", children: [relay("n5", "orage", "on"), relay("n6", "fantome", "on")] },
+          { id: "n7", type: "wait", seconds: 8 },
+          relay("n7b", "fantome", "off"),
+          relay("n7c", "orage", "off"),
+          relay("n8", "squelette", "on"),
+          { id: "n8b", type: "wait", seconds: 6 },
+          relay("n8c", "squelette", "off"),
+          relay("n9", "epouvantail", "on"),
+        ],
+      },
+    },
+  ],
+} as never;
+
+/** Les séquences-conteneurs prennent un identifiant dérivé : on les compare sans leur identifiant. */
+function shape(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(shape);
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    // une séquence d'un seul nœud équivaut à ce nœud : l'éditeur ne l'écrit pas autrement
+    if (object.type === "sequence" && Array.isArray(object.children) && object.children.length === 1 && object !== undefined) {
+      return shape(object.children[0]);
+    }
+    return Object.fromEntries(
+      Object.entries(object)
+        .filter(([k]) => !(k === "id" && object.type === "sequence"))
+        .map(([k, v]) => [k, shape(v)]),
+    );
+  }
+  return value;
+}
+
+test("l'annexe de la spec 1 fait l'aller-retour (identifiants des séquences mis à part)", () => {
+  loadProgram(ws, ANNEX);
+  const back = workspaceToProgram(ws, { id: ANNEX.id, name: ANNEX.name, max_duration_s: 90 });
+  expect(shape(back.scripts)).toEqual(shape(ANNEX.scripts));
+  expect(back.max_duration_s).toBe(90);
+});
+
+const everything = (): Program =>
+  ({
+    schema: 1,
+    id: "tout",
+    name: "Tout",
+    scripts: [
+      {
+        id: "s1",
+        hat: { type: "start" },
+        root: {
+          id: "r",
+          type: "sequence",
+          children: [
+            { id: "p", type: "parallel", until: "first", children: [relay("a", "orage", "on"), { id: "q", type: "sequence", children: [relay("b", "fantome", "on"), { id: "w", type: "wait", seconds: 1.25 }] }, { id: "l", type: "log", message: "trois branches" }] },
+            { id: "rep", type: "repeat", times: 4, child: { id: "rs", type: "sequence", children: [relay("c", "orage", "off"), { id: "wr", type: "wait", min: 0.5, max: 2 }] } },
+            { id: "if1", type: "if", condition: { type: "relay_is", id: "orage", state: "on" }, then: relay("t", "fantome", "on"), else: { id: "es", type: "sequence", children: [relay("e1", "fantome", "off"), relay("e2", "orage", "off")] } },
+            { id: "if2", type: "if", condition: { type: "random", probability: 0.35 }, then: { id: "ts", type: "sequence", children: [] } },
+            { id: "wu", type: "wait_until", condition: { type: "button", id: "bouton", event: "double" }, timeout_s: 30 },
+            { id: "wu2", type: "wait_until", condition: { type: "button", id: "bouton", event: "long" } },
+            { id: "rc", type: "random_choice", choices: [{ weight: 1, child: relay("x1", "orage", "on") }, { weight: 2.5, child: { id: "xs", type: "sequence", children: [relay("x2", "fantome", "on"), relay("x3", "fantome", "off")] } }, { weight: 1, child: { id: "xl", type: "log", message: "rien" } }] },
+            { id: "call1", type: "call", program_id: "autre" },
+            { id: "loop", type: "repeat", forever: true, child: { id: "ls", type: "sequence", children: [{ id: "lw", type: "wait", seconds: 5 }] } },
+          ],
+        },
+      },
+    ],
+  }) as never;
+
+test("tous les types de nœuds font l'aller-retour, boucle sans fin comprise", () => {
+  setCatalog({ ...devices, buttons: [{ id: "bouton", name: "Bouton", pin: 21 }] } as unknown as Devices);
+  setPrograms([{ id: "autre", name: "Autre" }]);
+  const source = everything();
+  loadProgram(ws, source);
+  const back = workspaceToProgram(ws, { id: "tout", name: "Tout" });
+  expect(shape(back.scripts)).toEqual(shape(source.scripts));
+});
+
+test("sérialiser deux fois donne exactement le même JSON (point fixe, identifiants de conteneurs compris)", () => {
+  setCatalog({ ...devices, buttons: [{ id: "bouton", name: "Bouton", pin: 21 }] } as unknown as Devices);
+  setPrograms([{ id: "autre", name: "Autre" }]);
+  loadProgram(ws, everything());
+  const first = workspaceToProgram(ws, { id: "tout", name: "Tout" });
+  const other = new Blockly.Workspace();
+  loadProgram(other, first);
+  expect(workspaceToProgram(other, { id: "tout", name: "Tout" }).scripts).toEqual(first.scripts);
+});
+
+test("un scénario appelé qui n'existe plus est conservé, marqué introuvable dans le menu", () => {
+  setPrograms([]);
+  loadProgram(ws, program([{ id: "c", type: "call", program_id: "disparu" }]));
+  expect(workspaceToProgram(ws, meta).scripts[0].root).toMatchObject({ children: [{ type: "call", program_id: "disparu" }] });
+  const options = (ws.getBlockById("c")!.getField("PROGRAM") as Blockly.FieldDropdown).getOptions(false);
+  expect(options).toContainEqual(["disparu (introuvable)", "disparu"]);
+});
+
+test("une branche vide d'un « en parallèle » n'est pas écrite, un « si » sans condition garde sa place", () => {
+  loadProgram(ws, program([{ id: "p", type: "parallel", children: [relay("a", "orage", "on")] }]));
+  const root = workspaceToProgram(ws, meta).scripts[0].root as unknown as { children: { children: object[] }[] };
+  expect(root.children[0].children).toHaveLength(1); // 2 branches affichées, 1 écrite
+  const block = ws.newBlock("hw_if", "i");
+  ws.getBlockById("s1")!.nextConnection!.connect(block.previousConnection!);
+  const node = (workspaceToProgram(ws, meta).scripts[0].root as unknown as { children: { id: string; condition: unknown }[] }).children.find((c) => c.id === "i");
+  expect(node!.condition).toBeNull(); // le moteur le refusera : l'erreur sera posée sur ce bloc (#49)
+});
