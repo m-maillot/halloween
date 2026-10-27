@@ -1,14 +1,16 @@
 import * as Blockly from "blockly/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Redo2, Undo2 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
-import { unwrap } from "../api/errors";
+import { ApiError, unwrap } from "../api/errors";
 import { useCatalog } from "../catalog/CatalogProvider";
-import { Button, Field } from "../components/ui";
+import { Button, Field, Modal } from "../components/ui";
 import { CodePrompt } from "../dashboard/CodePrompt";
 import { useEngine } from "../engine/EngineProvider";
 import { useToasts } from "../components/Toasts";
 import { BlocklyEditor } from "./BlocklyEditor";
+import { clearDraft, readDraft, writeDraft, type Draft } from "./draft";
 import { IssuePanel } from "./IssuePanel";
 import { RunBanner } from "./RunBanner";
 import { useRunView } from "./useRunView";
@@ -17,6 +19,9 @@ import type { SimulationOut } from "./timeline";
 import { loadProgram, workspaceToProgram, type Program } from "./serialize";
 import { useLiveValidation } from "./useLiveValidation";
 import { summary } from "./validation";
+
+/** Délai d'inactivité avant d'écrire le brouillon local. */
+export const DRAFT_DELAY_MS = 1000;
 
 export function ScenarioEditor() {
   const { id = "" } = useParams();
@@ -32,6 +37,8 @@ export function ScenarioEditor() {
   const [simulating, setSimulating] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [askCode, setAskCode] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
 
   const viewState = () => {
     const ws = workspace.current;
@@ -83,6 +90,8 @@ export function ScenarioEditor() {
         else ws.scrollCenter();
       }
       setDirty(false);
+      const stored = readDraft(id);
+      if (stored) setDraft(stored); // proposé à l'utilisateur ; rien n'est restauré sans son accord
       void runNow(); // première validation sans attendre
     }
   }, [program, id, !devices]);
@@ -133,7 +142,8 @@ export function ScenarioEditor() {
     }
   }
 
-  async function save() {
+  /** Enregistre sur le moteur ; `revision` vient de la lecture du moteur quand l'utilisateur choisit d'écraser. */
+  async function save(revision = program?.revision) {
     const body = build();
     if (!body || !program) return;
     setBusy(true);
@@ -141,24 +151,115 @@ export function ScenarioEditor() {
       const saved = await unwrap<{ program: Program }>(
         api.PUT("/api/programs/{program_id}", {
           params: { path: { program_id: id } },
-          headers: { "If-Match": `"${program.revision}"` },
+          headers: { "If-Match": `"${revision}"` },
           body,
         }),
       );
       setProgram(saved.program);
       setDirty(false);
+      clearDraft(id);
+      setDraft(null);
+      setConflict(false);
       toasts.info("Scénario enregistré.");
     } catch (error) {
-      toasts.error(error);
+      if (error instanceof ApiError && error.status === 412) setConflict(true); // modifié ailleurs entre-temps
+      else toasts.error(error);
     } finally {
       setBusy(false);
     }
   }
 
+  /** Conflit : « écraser » reprend la révision actuelle du moteur et enregistre ce qui est à l'écran. */
+  async function overwrite() {
+    try {
+      const current = await unwrap<Program>(api.GET("/api/programs/{program_id}", { params: { path: { program_id: id } } }));
+      await save(current.revision);
+    } catch (error) {
+      toasts.error(error);
+    }
+  }
+
+  /** Conflit : « recharger » abandonne ce qui est à l'écran au profit de la version du moteur. */
+  async function reload() {
+    try {
+      const current = await unwrap<Program>(api.GET("/api/programs/{program_id}", { params: { path: { program_id: id } } }));
+      if (workspace.current) loadProgram(workspace.current, current);
+      setProgram(current);
+      setName(current.name);
+      setDirty(false);
+      clearDraft(id);
+      setDraft(null);
+      setConflict(false);
+      void runNow();
+    } catch (error) {
+      toasts.error(error);
+    }
+  }
+
+  function restoreDraft() {
+    if (!draft || !workspace.current) return;
+    loadProgram(workspace.current, draft.program);
+    setName(draft.program.name);
+    setDirty(true);
+    setDraft(null);
+    void runNow();
+  }
+
+  function discardDraft() {
+    clearDraft(id);
+    setDraft(null);
+  }
+
+  // Brouillon automatique : ce qui est à l'écran, 1 s après la dernière modification.
+  useEffect(() => {
+    if (!dirty || !program || draft) return; // pas d'écrasement d'un brouillon proposé et pas encore tranché
+    const timer = setTimeout(() => {
+      const body = build();
+      if (body) writeDraft(id, { baseRevision: program.revision, savedAt: Date.now(), program: body });
+    }, DRAFT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [dirty, program, draft, name, build, id]);
+
+  // Ctrl+S enregistre (sans ouvrir la boîte « Enregistrer sous » du navigateur).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (!busy && !blocking && !running && program) void save();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // Quitter la page avec des modifications non enregistrées : le navigateur demande confirmation.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
   return (
     <div className="editor-page">
       <div className="editor-bar">
-        <Field label="Nom du scénario" value={name} onChange={(e) => setName(e.target.value)} />
+        <Field
+          label="Nom du scénario"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setDirty(true);
+          }}
+        />
+        <Button variant="ghost" aria-label="Annuler (Ctrl+Z)" title="Annuler (Ctrl+Z)" disabled={running} onClick={() => workspace.current?.undo(false)}>
+          <Undo2 size={18} aria-hidden="true" />
+        </Button>
+        <Button variant="ghost" aria-label="Rétablir (Ctrl+Y)" title="Rétablir (Ctrl+Y)" disabled={running} onClick={() => workspace.current?.undo(true)}>
+          <Redo2 size={18} aria-hidden="true" />
+        </Button>
         <Button
           disabled={simulating || !program || blocking}
           title={blocking ? "Corrigez les erreurs avant de simuler" : "Joue le scénario en temps virtuel, sans rien actionner"}
@@ -191,6 +292,18 @@ export function ScenarioEditor() {
           Enregistrer
         </Button>
       </div>
+      {draft && (
+        <div className="draft-banner" role="status">
+          <span>
+            Un brouillon non enregistré du {new Date(draft.savedAt).toLocaleString("fr-FR")} existe pour ce scénario
+            {program && draft.baseRevision !== program.revision && " (le scénario a changé depuis : le restaurer remplacera ces changements)"}.
+          </span>
+          <Button onClick={restoreDraft}>Restaurer le brouillon</Button>
+          <Button variant="ghost" onClick={discardDraft}>
+            Supprimer
+          </Button>
+        </div>
+      )}
       <RunBanner view={view} onDismiss={clear} />
       <div className="editor-body">
         <BlocklyEditor
@@ -204,6 +317,26 @@ export function ScenarioEditor() {
         />
         <IssuePanel issues={issues} state={state} onSelect={select} />
       </div>
+      {conflict && (
+        <Modal title="Ce scénario a été modifié ailleurs" onClose={() => setConflict(false)}>
+          <p>
+            Une autre session (ou la ligne de commande) a enregistré ce scénario depuis que vous l'avez ouvert. Écraser
+            remplace sa version par ce qui est à l'écran ; recharger abandonne vos modifications non enregistrées.
+          </p>
+          <div className="form-actions">
+            <Button variant="ghost" onClick={() => setConflict(false)}>
+              Annuler
+            </Button>
+            <span className="form-actions__spacer" />
+            <Button variant="outline-danger" onClick={() => void reload()}>
+              Recharger la version du moteur
+            </Button>
+            <Button variant="primary" onClick={() => void overwrite()}>
+              Écraser
+            </Button>
+          </div>
+        </Modal>
+      )}
       {askCode && <CodePrompt title="Code pour lancer ce scénario" onSubmit={(code) => launch(code)} onClose={() => setAskCode(false)} />}
       {simulation && (
         <SimulationPanel result={simulation} devices={devices} presses={presses} onPresses={setPresses} onClose={() => setSimulation(null)} />
