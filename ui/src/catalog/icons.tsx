@@ -75,7 +75,7 @@ export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon }> 
 };
 
 /** Icône attribuée tant qu'aucune image n'est choisie. */
-const DEFAULT_ICON: Record<Kind, string> = {
+export const DEFAULT_ICON: Record<Kind, string> = {
   relays: "power",
   buttons: "button",
   lights: "light",
