@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { currentToken, onTokenChange, setToken } from "./api/token";
 import { ToastProvider } from "./components/Toasts";
+import { CatalogProvider } from "./catalog/CatalogProvider";
 import { EngineProvider } from "./engine/EngineProvider";
 import { Layout } from "./layout/Layout";
 import { Components } from "./pages/Components";
@@ -50,6 +51,7 @@ export function App({ WebSocketImpl }: { WebSocketImpl?: typeof WebSocket }) {
   return (
     <ToastProvider>
     <EngineProvider WebSocketImpl={WebSocketImpl}>
+      <CatalogProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -62,6 +64,7 @@ export function App({ WebSocketImpl }: { WebSocketImpl?: typeof WebSocket }) {
           </Route>
         </Routes>
       </BrowserRouter>
+      </CatalogProvider>
     </EngineProvider>
     </ToastProvider>
   );
