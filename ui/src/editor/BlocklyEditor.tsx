@@ -80,8 +80,9 @@ export function BlocklyEditor({ devices, readOnly, onReady, onChange }: BlocklyE
     refreshComponentBlocks(ws);
   }, [devices]);
 
+  // Lecture seule pendant un run : on ne modifie pas des blocs en train de s'exécuter.
   useEffect(() => {
-    workspace.current?.options && (workspace.current.options.readOnly = Boolean(readOnly));
+    workspace.current?.setIsReadOnly(Boolean(readOnly));
   }, [readOnly]);
 
   return <div className="blockly-host" ref={host} />;

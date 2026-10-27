@@ -599,3 +599,30 @@ a.btn {
 .frise__tick:last-child:not(:first-child) {
   transform: translateX(-100%);
 }
+
+.run-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.run-banner__errors {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-danger-text);
+  font-size: 13px;
+}
+.hw-block-active > .blocklyPath {
+  stroke: #7ee08a !important;
+  stroke-width: 5px !important;
+  filter: drop-shadow(0 0 8px #7ee08a);
+}
+/* Les blocs suivants et imbriqués sont des enfants SVG du bloc : on n'estompe que ses propres éléments. */
+.hw-block-done > :not(.blocklyDraggable) {
+  opacity: 0.4;
+}
+.hw-block-run-error > .blocklyPath {
+  stroke: #ff4d4d !important;
+  stroke-width: 4px !important;
+}
