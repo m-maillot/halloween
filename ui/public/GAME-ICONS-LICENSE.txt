@@ -1,0 +1,88 @@
+Icônes de game-icons.net utilisées dans Déco Halloween
+============================================================
+
+Source : https://game-icons.net — dépôt https://github.com/game-icons/icons
+Licence : Creative Commons Attribution 3.0 (CC BY 3.0), https://creativecommons.org/licenses/by/3.0/
+Modifications : fond noir retiré, couleur donnée par le thème de l'interface.
+
+Icône par icône (fichier d'origine → auteur) :
+  - ghost-dessin (Fantôme) : lorc/ghost.svg — Lorc — http://lorcblog.blogspot.com
+  - floating-ghost (Fantôme flottant) : delapouite/floating-ghost.svg — Delapouite — http://delapouite.com
+  - skull-bones (Crâne et os croisés) : lorc/skull-crossed-bones.svg — Lorc — http://lorcblog.blogspot.com
+  - skeleton (Squelette) : lorc/skeleton-inside.svg — Lorc — http://lorcblog.blogspot.com
+  - pumpkin (Citrouille) : delapouite/pumpkin.svg — Delapouite — http://delapouite.com
+  - pumpkin-lantern (Citrouille lanterne) : lorc/pumpkin-lantern.svg — Lorc — http://lorcblog.blogspot.com
+  - bat (Chauve-souris) : delapouite/bat.svg — Delapouite — http://delapouite.com
+  - spider (Araignée) : carl-olsen/spider-alt.svg — Carl Olsen — https://twitter.com/unstoppableCarl
+  - spider-web (Toile d'araignée) : lorc/spider-web.svg — Lorc — http://lorcblog.blogspot.com
+  - cobweb (Cobweb) : lorc/cobweb.svg — Lorc — http://lorcblog.blogspot.com
+  - scarecrow (Épouvantail) : lorc/scarecrow.svg — Lorc — http://lorcblog.blogspot.com
+  - cauldron (Chaudron) : lorc/cauldron.svg — Lorc — http://lorcblog.blogspot.com
+  - tombstone (Pierre tombale) : lorc/tombstone.svg — Lorc — http://lorcblog.blogspot.com
+  - coffin (Cercueil) : lorc/coffin.svg — Lorc — http://lorcblog.blogspot.com
+  - witch (Sorcière) : cathelineau/witch-face.svg — Cathelineau
+  - broom (Balai de sorcière) : delapouite/magic-broom.svg — Delapouite — http://delapouite.com
+  - candle-dessin (Bougie) : lorc/candle-flame.svg — Lorc — http://lorcblog.blogspot.com
+  - lantern (Lanterne) : lorc/lantern-flame.svg — Lorc — http://lorcblog.blogspot.com
+  - storm-dessin (Orage) : lorc/lightning-storm.svg — Lorc — http://lorcblog.blogspot.com
+  - werewolf (Loup-garou) : lorc/werewolf.svg — Lorc — http://lorcblog.blogspot.com
+  - vampire (Vampire) : delapouite/vampire-dracula.svg — Delapouite — http://delapouite.com
+  - zombie (Zombie) : delapouite/shambling-zombie.svg — Delapouite — http://delapouite.com
+  - mummy (Momie) : delapouite/mummy-head.svg — Delapouite — http://delapouite.com
+  - raven (Corbeau) : lorc/raven.svg — Lorc — http://lorcblog.blogspot.com
+  - owl (Hibou) : lorc/owl.svg — Lorc — http://lorcblog.blogspot.com
+  - cat-dessin (Chat) : lorc/cat.svg — Lorc — http://lorcblog.blogspot.com
+  - potion (Potion) : delapouite/magic-potion.svg — Delapouite — http://delapouite.com
+  - crystal-ball (Boule de cristal) : lorc/crystal-ball.svg — Lorc — http://lorcblog.blogspot.com
+  - devil (Masque de diable) : delapouite/devil-mask.svg — Delapouite — http://delapouite.com
+  - haunted-house (Maison hantée) : delapouite/spooky-house.svg — Delapouite — http://delapouite.com
+  - severed-hand (Main coupée) : darkzaitzev/severed-hand.svg — DarkZaitzev — http://darkzaitzev.deviantart.com
+  - fog-dessin (Brouillard) : delapouite/fog.svg — Delapouite — http://delapouite.com
+
+Notice du dépôt d'origine :
+------------------------------------------------------------
+Icons provided under the Creative Commons 3.0 BY or CC0 if mentioned below.
+
+Each sub-folders in this archive correspond to a different contributor :
+
+- Lorc, http://lorcblog.blogspot.com
+- Delapouite, http://delapouite.com
+- John Colburn, http://ninmunanmu.com
+- Felbrigg, http://blackdogofdoom.blogspot.co.uk
+- John Redman, http://www.uniquedicetowers.com
+- Carl Olsen, https://twitter.com/unstoppableCarl
+- Sbed, http://opengameart.org/content/95-game-icons
+- PriorBlue
+- Willdabeast, http://wjbstories.blogspot.com
+- Viscious Speed, http://viscious-speed.deviantart.com - CC0
+- Lord Berandas, http://berandas.deviantart.com
+- Irongamer, http://ecesisllc.wix.com/home
+- HeavenlyDog, http://www.gnomosygoblins.blogspot.com
+- Lucas
+- Faithtoken, http://fungustoken.deviantart.com
+- Skoll
+- Andy Meneely, http://www.se.rit.edu/~andy/
+- Cathelineau
+- Kier Heyl
+- Aussiesim
+- Sparker, http://citizenparker.com
+- Zeromancer - CC0
+- Rihlsul
+- Quoting
+- Guard13007, https://guard13007.com
+- DarkZaitzev, http://darkzaitzev.deviantart.com
+- SpencerDub
+- GeneralAce135
+- Zajkonur
+- Catsu
+- Starseeker
+- Pepijn Poolman
+- Pierre Leducq
+- Caro Asercion
+- SeregaCthtuf
+
+Please, include a mention "Icons made by {author}" in your derivative work.
+
+If you use them in one of your project, don't hesitate to drop a message to delapouite@gmail.com or ping @GameIcons on twitter.
+
+More info and icons available at https://game-icons.net
