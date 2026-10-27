@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
-import { useId } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { useEffect, useId } from "react";
 
 function cx(...parts: (string | false | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -118,6 +118,95 @@ export function Progress({ ratio, label }: { ratio?: number; label: string }) {
       aria-valuenow={percent}
     >
       <div className="progress__bar" style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
+function describedBy(id: string, hint?: string, error?: string): string | undefined {
+  return [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
+}
+
+export function SelectField({
+  label,
+  hint,
+  error,
+  children,
+  ...select
+}: { label: string; hint?: string; error?: string } & SelectHTMLAttributes<HTMLSelectElement>) {
+  const id = useId();
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={id}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className="input"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(id, hint, error)}
+        {...select}
+      >
+        {children}
+      </select>
+      {hint && (
+        <span id={`${id}-hint`} className="field__hint">
+          {hint}
+        </span>
+      )}
+      {error && (
+        <span id={`${id}-error`} className="field__error" role="alert">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function CheckField({
+  label,
+  hint,
+  ...input
+}: { label: string; hint?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const id = useId();
+  return (
+    <div className="field field--check">
+      <input id={id} type="checkbox" aria-describedby={hint ? `${id}-hint` : undefined} {...input} />
+      <label htmlFor={id}>{label}</label>
+      {hint && (
+        <span id={`${id}-hint`} className="field__hint">
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Fenêtre modale : Échap la ferme, le titre la nomme pour les lecteurs d'écran. */
+export function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const titleId = useId();
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-backdrop">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <h2 id={titleId} className="modal__title">
+          {title}
+        </h2>
+        {children}
+      </div>
     </div>
   );
 }

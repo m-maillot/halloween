@@ -92,3 +92,28 @@ export async function unwrap<T>(
   if (!response.ok) throw new ApiError(response.status, error);
   return data as T;
 }
+
+export interface FormErrors {
+  /** Message par champ (dernier élément du chemin FastAPI : `body › pin` donne `pin`). */
+  fields: Record<string, string>;
+  /** Ce qui ne se rattache à aucun champ (règle de configuration, conflit...). */
+  general?: Described;
+}
+
+/** Répartit une erreur d'enregistrement entre champs du formulaire et message général. */
+export function formErrors(error: unknown): FormErrors {
+  if (error instanceof ApiError) {
+    const detail = (error.body as { detail?: unknown } | null)?.detail;
+    if (Array.isArray(detail)) {
+      const fields: Record<string, string> = {};
+      const rest: string[] = [];
+      for (const entry of detail as { loc?: unknown[]; msg?: string }[]) {
+        const name = Array.isArray(entry.loc) ? entry.loc.filter((p) => p !== "body").at(-1) : undefined;
+        if (typeof name === "string" && entry.msg) fields[name] ??= entry.msg;
+        else if (entry.msg) rest.push(entry.msg);
+      }
+      return { fields, general: rest.length ? { title: BY_STATUS[422], details: rest } : undefined };
+    }
+  }
+  return { fields: {}, general: describeError(error) };
+}
