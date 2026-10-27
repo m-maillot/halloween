@@ -199,6 +199,21 @@ class Engine:
             self.config = config
             return await self._build()
 
+    def reload_content(self) -> list[Issue]:
+        """Recharge programmes et déclencheurs depuis le disque (après une modification par l'API).
+
+        Les programmes invalides sont écartés et les déclencheurs qui en dépendent aussi ; les
+        runs en cours ne sont pas touchés. Retourne les problèmes rencontrés.
+        """
+        assert self.triggers is not None
+        report = StartupReport()
+        self._load_programs(report)
+        self.triggers.set_triggers(self._load_triggers(report))
+        self.report.issues = report.issues
+        self.report.programs = len(self.programs)
+        self.report.triggers = len(self.triggers.triggers)
+        return report.issues
+
     def update_cosmetics(self, config: AppConfig) -> None:
         """Enregistre une config qui ne change que noms, images, repos : rien n'est interrompu."""
         self.store.save_config(config)
