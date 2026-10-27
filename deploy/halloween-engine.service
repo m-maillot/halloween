@@ -16,6 +16,11 @@ SupplementaryGroups=gpio
 StateDirectory=halloween
 StateDirectoryMode=0750
 Environment=HALLOWEEN_DATA_DIR=/var/lib/halloween
+# lgpio crée des fichiers dans le répertoire courant : il doit être inscriptible (« / » ne l'est
+# pas sous ProtectSystem=strict). Sans cela gpiozero retombe en silence sur le pilote sysfs,
+# qui échoue sur les noyaux récents. On impose lgpio pour qu'un échec soit explicite.
+WorkingDirectory=/var/lib/halloween
+Environment=GPIOZERO_PIN_FACTORY=lgpio
 # Interface web (build statique) servie par le moteur sur le même port que l'API.
 Environment=HALLOWEEN_UI_DIR=/opt/halloween/ui
 # Surcharges facultatives (HALLOWEEN_UI_DIR, HALLOWEEN_API_TOKEN, HALLOWEEN_HA_TOKEN...).
