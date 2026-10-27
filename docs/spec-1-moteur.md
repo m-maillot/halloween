@@ -271,6 +271,11 @@ Stockés dans `triggers.json`, gérés par l'API :
 
 Base `http://<pi>:8080/api`, jeton statique `Authorization: Bearer`, réseau local uniquement.
 
+- **Authentification** : toutes les routes exigent `Authorization: Bearer <jeton>` (`401` sinon), sauf `GET /api/health` (vivacité, sans détail). Le jeton est `HALLOWEEN_API_TOKEN` ou le fichier `api-token` du dossier de données, **créé au premier démarrage** (aléatoire, permissions 600, jamais affiché). Le WebSocket `/api/events` accepte `?token=` (un navigateur ne peut pas poser d'en-tête sur un WebSocket) ; les routes HTTP, non.
+- **Lancement** : `halloween-cli api [--host 0.0.0.0] [--port 8080] [--ui-dir …]` démarre le moteur (avec sa reprise), l'API et l'interface ; un démarrage impossible (configuration invalide) arrête le service avec un message clair.
+- **Interface** : le build statique (`--ui-dir` / `HALLOWEEN_UI_DIR`) est servi sur `/`, public ; toute route inconnue hors `/api` renvoie `index.html` (ex. `/spectacle`) ; `/api/…` inconnu reste une 404 JSON. Sans build, une page d'attente est servie.
+- ⚠️ Le jeton protège contre un appareil quelconque du réseau local, pas contre Internet : ne pas exposer le port.
+
 **Configuration**
 
 | Méthode | Route | Rôle |

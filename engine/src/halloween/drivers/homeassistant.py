@@ -64,6 +64,9 @@ class HttpHAClient(HAClient):
         self._cooldown_s = cooldown_s
         self._clock = clock
         self._down_until = 0.0
+        # Dernier résultat observé, pour afficher l'état de la connexion en permanence.
+        self.last_ok_at: float | None = None
+        self.last_error: str | None = None
         self._client = httpx.AsyncClient(
             base_url=self._url + "/",
             headers={"Authorization": f"Bearer {token}"},
@@ -109,15 +112,19 @@ class HttpHAClient(HAClient):
             response = await self._client.request(method, path, **kwargs)
         except httpx.TimeoutException as exc:
             self._down_until = self._clock() + self._cooldown_s
+            self.last_error = f"délai de {self._timeout_s:g} s dépassé"
             raise HATimeout(
                 f"Home Assistant n'a pas répondu en {self._timeout_s:g} s ({self._url})"
             ) from exc
         except httpx.TransportError as exc:
             self._down_until = self._clock() + self._cooldown_s
+            self.last_error = self._reason(exc)
             raise HAUnreachable(
-                f"Home Assistant injoignable : {self._reason(exc)} ({self._url})"
+                f"Home Assistant injoignable : {self.last_error} ({self._url})"
             ) from exc
         self._down_until = 0.0
+        self.last_ok_at = time.time()  # Home Assistant répond (même par une erreur HTTP)
+        self.last_error = None
         if response.status_code >= 400:
             raise self._http_error(response, method, path)
         return response

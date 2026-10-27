@@ -84,6 +84,17 @@ class Engine:
         self._buttons: ButtonDriver | None = None
         self._ha: HAClient | None = None
         self._retry: asyncio.Task[None] | None = None
+        self.report = StartupReport()
+
+    @property
+    def relays(self) -> RelayDriver:
+        assert self._relays is not None, "moteur non démarré"
+        return self._relays
+
+    @property
+    def ha(self) -> HAClient:
+        assert self._ha is not None, "moteur non démarré"
+        return self._ha
 
     async def start(self) -> StartupReport:
         """Démarre le moteur ; en cas d'échec en cours de route, libère ce qui a été acquis."""
@@ -122,6 +133,7 @@ class Engine:
         report.triggers = len(triggers)
         for issue in report.issues:
             log.warning("démarrage : %s", issue.message, extra={"code": issue.code})
+        self.report = report
         log.info(
             "moteur démarré",
             extra={"programs": report.programs, "triggers": report.triggers},
