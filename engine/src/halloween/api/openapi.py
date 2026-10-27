@@ -24,6 +24,7 @@ from halloween.store import Store
 
 TAGS = [
     {"name": "système", "description": "Vivacité et état du moteur"},
+    {"name": "verrouillage", "description": "Code, verrouiller et déverrouiller"},
     {"name": "composants", "description": "Relais, boutons, lumières, interrupteurs et catalogue"},
     {"name": "home-assistant", "description": "Connexion à Home Assistant et entités"},
     {"name": "images", "description": "Images des composants"},

@@ -51,8 +51,16 @@ class HomeAssistantStatus(BaseModel):
     last_error: str | None = None
 
 
+class LockOut(BaseModel):
+    locked: bool
+    has_code: bool
+    # Secondes avant le prochain essai de code autorisé (après trop d'essais ratés).
+    retry_after_s: int | None = None
+
+
 class Status(BaseModel):
     version: str
+    lock: LockOut
     runs: list[RunOut]
     relays: dict[str, bool]
     home_assistant: HomeAssistantStatus
