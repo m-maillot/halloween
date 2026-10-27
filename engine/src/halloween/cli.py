@@ -100,6 +100,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     api.add_argument("--ha-dry-run", action="store_true", help="n'envoie rien à Home Assistant")
 
+    unlock = sub.add_parser("unlock", help="code de verrouillage perdu : le supprimer")
+    unlock.add_argument(
+        "--reset",
+        action="store_true",
+        help="supprime le code et déverrouille (exige un accès shell au Pi)",
+    )
+
     ha_check = sub.add_parser(
         "ha-check", help="vérifier Home Assistant et les capacités des lumières"
     )
@@ -392,6 +399,25 @@ async def cmd_run(args: argparse.Namespace, backend: Backend, out: TextIO) -> in
         await ha.close()
 
 
+async def cmd_unlock(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
+    """Réinitialise le verrouillage ; le service en cours le voit aussitôt (fichier relu)."""
+    if not args.reset:
+        raise CliError("utiliser `unlock --reset` : supprime le code et déverrouille")
+    from halloween.lock import LockState
+
+    lock = LockState.in_dir(Path(args.data_dir))
+    was_locked, had_code = lock.locked, lock.has_code
+    lock.reset()
+    if not had_code:
+        print("Aucun code n'était défini : rien à réinitialiser.", file=out)
+    else:
+        state = "déverrouillé" if was_locked else "déjà déverrouillé"
+        print(
+            f"Code supprimé ; moteur {state}. Définir un nouveau code dans l'interface.", file=out
+        )
+    return EXIT_OK
+
+
 COMMANDS: dict[str, Callable[[argparse.Namespace, Backend, TextIO], Awaitable[int]]] = {
     "button": cmd_button_watch,
     "gpio-check": cmd_gpio_check,
@@ -401,6 +427,7 @@ COMMANDS: dict[str, Callable[[argparse.Namespace, Backend, TextIO], Awaitable[in
     "serve": cmd_serve,
     "api": cmd_api,
     "simulate": cmd_simulate,
+    "unlock": cmd_unlock,
 }
 
 

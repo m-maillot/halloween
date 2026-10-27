@@ -7,11 +7,15 @@ dans `lock.json` (permissions 600). Le fichier est relu à chaque accès : `hall
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -127,3 +131,40 @@ class LockState:
             self._path.unlink()
         except FileNotFoundError:
             pass
+
+
+MAX_FREE_ATTEMPTS = 5
+BASE_DELAY_S = 30.0
+MAX_DELAY_S = 900.0
+
+
+class Throttle:
+    """Délai croissant après trop de codes faux, commun à tous les endroits qui demandent le code.
+
+    Les 5 premiers essais ratés n'entraînent rien ; ensuite chaque échec double l'attente
+    (30 s, 1 min, 2 min… 15 min au plus). Pendant l'attente, aucun essai n'est examiné (et il ne
+    compte pas). Un bon code remet le compteur à zéro. L'état est en mémoire : un redémarrage le
+    remet à zéro, ce qui n'aide pas un attaquant réseau (il ne peut pas redémarrer le service).
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self.clock = clock
+        self._failures = 0
+        self._blocked_until = 0.0
+        # Un seul essai examiné à la fois : des requêtes en parallèle ne contournent pas le compte.
+        self.guard = asyncio.Lock()
+
+    def retry_after(self) -> int:
+        """Secondes à attendre avant le prochain essai (0 : libre)."""
+        remaining = self._blocked_until - self.clock()
+        return math.ceil(remaining) if remaining > 0 else 0
+
+    def failure(self) -> None:
+        self._failures += 1
+        if self._failures >= MAX_FREE_ATTEMPTS:
+            delay = min(BASE_DELAY_S * 2 ** (self._failures - MAX_FREE_ATTEMPTS), MAX_DELAY_S)
+            self._blocked_until = self.clock() + delay
+
+    def success(self) -> None:
+        self._failures = 0
+        self._blocked_until = 0.0

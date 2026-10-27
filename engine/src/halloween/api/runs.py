@@ -74,7 +74,7 @@ async def list_runs(engine: EngineDep) -> list[RunOut]:
         409: {"description": "Le programme tourne déjà (politique `ignore`)"},
         422: {"description": "Programme écarté : incompatible avec la configuration"},
         423: {"description": "Verrouillé : le code est obligatoire"},
-        429: {"description": "Trop de runs simultanés"},
+        429: {"description": "Trop de runs simultanés, ou trop d'essais de code"},
     },
 )
 async def start_run(body: StartRun, engine: EngineDep) -> RunOut:
@@ -85,7 +85,7 @@ async def start_run(body: StartRun, engine: EngineDep) -> RunOut:
     if engine.lock.locked:
         if body.code is None:
             raise api_error(423, "verrouillé : le code est obligatoire pour lancer")
-        check_code(engine, body.code)
+        await check_code(engine, body.code)
     program = engine.programs.get(body.program_id)
     if program is None:
         if engine.store.get_program(body.program_id) is None:

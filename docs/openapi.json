@@ -5367,6 +5367,9 @@
           },
           "423": {
             "description": "Verrouillé : déverrouiller d'abord"
+          },
+          "429": {
+            "description": "Trop d'essais : attendre `retry_after_s`"
           }
         },
         "security": [
@@ -5694,7 +5697,7 @@
             "description": "Verrouillé : le code est obligatoire"
           },
           "429": {
-            "description": "Trop de runs simultanés"
+            "description": "Trop de runs simultanés, ou trop d'essais de code"
           }
         },
         "security": [
@@ -5989,6 +5992,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Trop d'essais : attendre `retry_after_s`"
           }
         },
         "security": [

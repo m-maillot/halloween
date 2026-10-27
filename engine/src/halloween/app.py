@@ -39,7 +39,7 @@ from halloween.events import (
     from_run_event,
 )
 from halloween.issues import Issue, errors
-from halloween.lock import LockState
+from halloween.lock import LockState, Throttle
 from halloween.log import current_context, get_logger
 from halloween.program.models import ActionNode, Program
 from halloween.program.runs import RunEvent, RunManager
@@ -98,6 +98,7 @@ class Engine:
         self.ready = asyncio.Event()
         self.hub = EventHub()
         self.lock = LockState.in_dir(store.root)
+        self.throttle = Throttle()
         self._reconfiguring = asyncio.Lock()
         # Sérialise les modifications de configuration faites par l'API (lecture puis écriture).
         self.config_lock = asyncio.Lock()
