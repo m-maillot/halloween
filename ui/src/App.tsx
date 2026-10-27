@@ -1,10 +1,17 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { api } from "./api/client";
+import { useSyncExternalStore } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { currentToken, onTokenChange, setToken } from "./api/token";
-import type { components } from "./api/schema";
+import { EngineProvider } from "./engine/EngineProvider";
+import { Layout } from "./layout/Layout";
+import { Components } from "./pages/Components";
+import { Dashboard } from "./pages/Dashboard";
+import { Scenarios } from "./pages/Scenarios";
+import { Settings } from "./pages/Settings";
+import { Spectacle } from "./pages/Spectacle";
+import { Triggers } from "./pages/Triggers";
 import { Styleguide } from "./Styleguide";
-
-type Status = components["schemas"]["Status"];
+import { Button, Field } from "./components/ui";
+import { useState } from "react";
 
 export function useToken(): string | null {
   return useSyncExternalStore(onTokenChange, currentToken);
@@ -14,52 +21,45 @@ function TokenForm() {
   const [value, setValue] = useState("");
   return (
     <form
+      className="token-form"
       onSubmit={(e) => {
         e.preventDefault();
         if (value.trim()) setToken(value.trim());
       }}
     >
       <h1>Déco Halloween</h1>
-      <label>
-        Jeton du moteur
-        <input type="password" value={value} onChange={(e) => setValue(e.target.value)} />
-      </label>
-      <button type="submit">Se connecter</button>
+      <Field
+        label="Jeton du moteur"
+        type="password"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        hint="Fichier api-token du dossier de données du moteur."
+      />
+      <Button variant="primary" type="submit">
+        Se connecter
+      </Button>
     </form>
   );
 }
 
-function StatusView() {
-  const [status, setStatus] = useState<Status | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .GET("/api/status")
-      .then(({ data, error: apiError }) => {
-        if (cancelled) return;
-        if (data) setStatus(data);
-        else if (apiError) setError("Le moteur a refusé la requête.");
-      })
-      .catch(() => !cancelled && setError("Moteur injoignable."));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  if (error) return <p role="alert">{error}</p>;
-  if (!status) return <p>Chargement…</p>;
-  return (
-    <main>
-      <h1>Déco Halloween</h1>
-      <p>
-        Moteur v{status.version}, {status.programs} scénario(s), {status.runs.length} en cours.
-      </p>
-    </main>
-  );
-}
-
-export function App() {
+export function App({ WebSocketImpl }: { WebSocketImpl?: typeof WebSocket }) {
   const token = useToken();
   if (location.hash === "#styleguide") return <Styleguide />;
-  return token ? <StatusView /> : <TokenForm />;
+  if (!token) return <TokenForm />;
+  return (
+    <EngineProvider WebSocketImpl={WebSocketImpl}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="spectacle" element={<Spectacle />} />
+            <Route path="scenarios/*" element={<Scenarios />} />
+            <Route path="declencheurs" element={<Triggers />} />
+            <Route path="composants/*" element={<Components />} />
+            <Route path="reglages" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </EngineProvider>
+  );
 }
