@@ -9,6 +9,8 @@ export type Node = { id: string; type: string; [key: string]: unknown };
 export interface EditorLayout {
   /** Position de chaque bloc début (les autres blocs suivent leur pile). */
   blocks: Record<string, { x: number; y: number }>;
+  /** Identifiants des blocs repliés. */
+  collapsed?: string[];
   zoom?: number;
   scroll?: { x: number; y: number };
 }
@@ -185,6 +187,11 @@ export function workspaceToProgram(workspace: Blockly.Workspace, meta: ProgramMe
     const { x, y } = hat.getRelativeToSurfaceXY();
     layout.blocks[nodeId(hat)] = { x: Math.round(x), y: Math.round(y) };
   }
+  const collapsed = workspace
+    .getAllBlocks(false)
+    .filter((b) => b.isCollapsed())
+    .map(nodeId);
+  if (collapsed.length) layout.collapsed = collapsed;
   return {
     schema: 1,
     id: meta.id,
@@ -249,7 +256,7 @@ function nodeToBlock(workspace: Blockly.Workspace, node: Node): Blockly.Block {
     case "relay":
     case "light":
     case "switch": {
-      const block = create(workspace, `hw_${node.type}`, node.id, { target: node.target });
+      const block = create(workspace, `hw_${node.type}`, node.id, node.type === "relay" && node.action === "trigger" ? { target: node.target, trigger: true } : { target: node.target });
       // Un champ absent (paramètre qu'un composant ne porte pas) est ignoré sans lever d'erreur : la
       // validation du moteur, pas le chargement, dit ce qui ne va pas.
       const set = (name: string, value: string) => block.getField(name) && block.setFieldValue(value, name);
@@ -356,6 +363,7 @@ export function loadProgram(workspace: Blockly.Workspace, program: Program): voi
         nextY += estimatedHeight(hat) + 30;
       }
     }
+    for (const id of layout?.collapsed ?? []) workspace.getBlockById(id)?.setCollapsed(true);
     renderAll(workspace);
   } finally {
     Blockly.Events.enable();
