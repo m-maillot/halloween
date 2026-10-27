@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { currentToken, onTokenChange, setToken } from "./api/token";
+import { ToastProvider } from "./components/Toasts";
 import { EngineProvider } from "./engine/EngineProvider";
 import { Layout } from "./layout/Layout";
 import { Components } from "./pages/Components";
@@ -47,6 +48,7 @@ export function App({ WebSocketImpl }: { WebSocketImpl?: typeof WebSocket }) {
   if (location.hash === "#styleguide") return <Styleguide />;
   if (!token) return <TokenForm />;
   return (
+    <ToastProvider>
     <EngineProvider WebSocketImpl={WebSocketImpl}>
       <BrowserRouter>
         <Routes>
@@ -61,5 +63,6 @@ export function App({ WebSocketImpl }: { WebSocketImpl?: typeof WebSocket }) {
         </Routes>
       </BrowserRouter>
     </EngineProvider>
+    </ToastProvider>
   );
 }

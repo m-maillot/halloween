@@ -1,6 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Cable, LayoutGrid, Play, Settings, Shapes, Zap } from "lucide-react";
+import { useEngine } from "../engine/EngineProvider";
 import { Banner } from "./Banner";
+import { OfflineScreen } from "./OfflineScreen";
 import "./layout.css";
 
 const ENTRIES = [
@@ -13,9 +15,12 @@ const ENTRIES = [
 ];
 
 export function Layout() {
+  const { connection, status } = useEngine();
+  // Hors ligne (ou pas encore de première réponse) : rien n'est actionnable, sauf « Réessayer ».
+  const blocked = connection === "offline" || (connection === "connecting" && !status);
   return (
     <div className="shell">
-      <nav className="sidebar" aria-label="Navigation">
+      <nav className="sidebar" aria-label="Navigation" inert={blocked || undefined}>
         <div className="sidebar__brand">Déco Halloween</div>
         {ENTRIES.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className="sidebar__link">
@@ -27,7 +32,7 @@ export function Layout() {
       <div className="shell__main">
         <Banner />
         <main className="shell__content">
-          <Outlet />
+          {blocked ? <OfflineScreen /> : <Outlet />}
         </main>
       </div>
     </div>
