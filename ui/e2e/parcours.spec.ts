@@ -57,18 +57,43 @@ test("éditeur : construire un scénario par glisser-déposer, l'enregistrer, le
   await page.keyboard.press("Control+s");
   await expect(page.getByText("Scénario enregistré.")).toBeVisible();
 
+  // blocs de contrôle posés dans les entrées d'instructions : en parallèle, répéter, attente aléatoire
+  const inside = async (category: string, type: string, parent: string, dx: number, dy: number) => {
+    const anchor = await lastBlock(page, parent);
+    await dragFromToolbox(page, category, type, { x: anchor.x + dx, y: anchor.y + dy });
+    await page.waitForTimeout(300);
+  };
+  await append("Contrôle", "hw_repeat", "hw_relay");
+  await inside("Contrôle", "hw_wait_random", "hw_repeat", 150, 26);
+  await append("Contrôle", "hw_parallel", "hw_repeat");
+  await inside("Relais", "hw_relay", "hw_parallel", 80, 56);
+  await expect.poll(() => blockCount(page, "hw_wait_random")).toBe(1);
+  await expect(page.getByText(/n'est rattaché à aucun bloc/)).toHaveCount(0);
+  await expect(page.getByText(/^(Scénario valide|Valide, \d+ avertissements?)$/)).toBeVisible();
+  await page.keyboard.press("Control+s");
+  await expect(page.getByText("Scénario enregistré.").last()).toBeVisible();
+  const saved = await (await api(request, "get", "/programs/mon-scenario")).json();
+  const types = JSON.stringify(saved.scripts);
+  expect(types).toContain('"type":"parallel"');
+  expect(types).toContain('"type":"repeat"');
+  expect(types).toContain('"min"'); // attente aléatoire
+
   // la mise en page et les blocs survivent au rechargement
   const before = await blockCount(page, "hw_relay");
+  const hatBefore = await lastBlock(page, "hw_start");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Validation" })).toBeVisible();
   await expect.poll(() => blockCount(page, "hw_relay")).toBe(before);
+  await expect.poll(() => blockCount(page, "hw_parallel")).toBe(1);
+  // mise en page restituée à l'identique (le début au même endroit à l'écran)
+  await expect.poll(async () => (await lastBlock(page, "hw_start")).y, { timeout: 3000 }).toBeCloseTo(hatBefore.y, -1);
 
   // simulation : une ligne par composant dans la frise
   await page.getByRole("button", { name: "Simuler" }).click();
   const frise = page.getByRole("region", { name: "Frise temporelle" });
   await expect(frise.getByText(/Terminé en/)).toBeVisible();
-  await expect(frise.getByRole("img", { name: /Fantôme : allumé/ })).toBeVisible();
-  await expect(frise.getByRole("img", { name: /Orage : allumé/ })).toBeVisible();
+  await expect(frise.getByRole("img", { name: /Fantôme : allumé/ }).first()).toBeVisible();
+  await expect(frise.getByRole("img", { name: /Orage : allumé/ }).first()).toBeVisible();
 });
 
 test("exécution : surlignage du bloc actif dans chaque script, puis STOP", async ({ page, request }) => {
@@ -155,4 +180,31 @@ test("verrouillage : code défini, écritures refusées (423), STOP libre, lance
   await page.getByRole("dialog", { name: "Déverrouiller l'interface" }).getByLabel("Code").fill("2468");
   await page.getByRole("button", { name: "Valider" }).click();
   await expect(page.getByRole("button", { name: /Déverrouillé : verrouiller/ })).toBeVisible();
+});
+
+test("téléphone (360 px) : le tableau de bord et le mode spectacle ne débordent pas", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  for (const path of ["/", "/spectacle"]) {
+    await open(page, path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(overflow, `défilement horizontal sur ${path}`).toBe(false);
+  }
+  // les actions principales du mode spectacle sont des cibles de 64 px au moins
+  const heights = await page.locator(".show__stop, .show__action").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+  expect(heights.length).toBeGreaterThan(0);
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(64);
+});
+
+test("lumière à capacités limitées : le bloc ne propose que la luminosité", async ({ page, request }) => {
+  const created = await api(request, "post", "/components/lights", { name: "Guirlande Twinkly", entity_id: "light.twinkly", supports_brightness: true });
+  expect(created.status()).toBe(201);
+  await saveProgram(request, "guirlande", "Guirlande", [{ id: "g", type: "light", target: "guirlande-twinkly", state: "on" }]);
+  await open(page, "/scenarios/guirlande");
+  await expect(page.getByText(/^(Scénario valide|Valide, \d+ avertissements?)$/)).toBeVisible();
+  const gear = page.locator(".hw_light image").first();
+  await gear.click();
+  const block = page.locator(".hw_light").first();
+  await expect(block.getByText("luminosité")).toBeVisible();
+  await expect(block.getByText("couleur")).toBeHidden();
+  await expect(block.getByText("transition")).toBeHidden();
 });

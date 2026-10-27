@@ -2,6 +2,7 @@
 // soit affiché ou non : les tests tournent sans navigateur.
 import * as Blockly from "blockly/core";
 import type { components } from "../api/schema";
+import { refreshVisibility } from "./blocks";
 
 export type Program = components["schemas"]["Program"];
 export type Node = { id: string; type: string; [key: string]: unknown };
@@ -280,6 +281,7 @@ function nodeToBlock(workspace: Blockly.Workspace, node: Node): Blockly.Block {
           set("USE_TRANS", "TRUE");
           set("TRANS", String(node.transition));
         }
+        refreshVisibility(block); // les paramètres posés doivent être visibles tout de suite
       }
       return block;
     }

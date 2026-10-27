@@ -276,3 +276,25 @@ test("Échap et Annuler ferment le formulaire sans rien enregistrer", async () =
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(calls.some((c) => c.method === "POST")).toBe(false);
 });
+
+
+test("une lumière créée en ne cochant que « luminosité » n'annonce ni couleur ni transition", async () => {
+  respond = ({ method, path }) =>
+    method === "POST" && path === "/api/components/lights" ? Response.json({ component: { id: "guirlande" }, issues: [] }, { status: 201 }) : undefined;
+  const user = await openApp();
+  await user.click(screen.getByRole("tab", { name: /Lumières/ }));
+  await user.click(screen.getByRole("button", { name: "Ajouter une lumière" }));
+  await waitFor(() => expect(screen.getByRole("option", { name: "Lampe (light.lampe)" })).toBeInTheDocument());
+  const dialog = screen.getByRole("dialog");
+  await user.type(within(dialog).getByLabelText("Nom", { exact: true }), "Guirlande");
+  await user.selectOptions(within(dialog).getByLabelText("Entité Home Assistant"), "light.lampe");
+  await user.click(within(dialog).getByLabelText("Luminosité"));
+  await user.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path === "/api/components/lights")).toBe(true));
+  expect(calls.find((c) => c.method === "POST" && c.path === "/api/components/lights")!.body).toMatchObject({
+    entity_id: "light.lampe",
+    supports_brightness: true,
+    supports_color: false,
+    supports_transition: false,
+  });
+});

@@ -45,38 +45,38 @@ function lookup(block: ComponentBlock) {
   return block.kind_ === "relay" ? findRelay(block.target_) : block.kind_ === "light" ? findLight(block.target_) : findSwitch(block.target_);
 }
 
-/** Affiche ou masque les paramètres facultatifs selon l'engrenage et les cases cochées. */
-function refreshVisibility(block: ComponentBlock): void {
+const PARAM_ROWS: [row: string, use: string][] = [
+  ["P_COLOR", "USE_COLOR"],
+  ["P_BRIGHT", "USE_BRIGHT"],
+  ["P_TRANS", "USE_TRANS"],
+];
+
+/**
+ * Affiche ou masque les paramètres facultatifs selon l'engrenage et les cases cochées. Chaque
+ * paramètre a sa propre ligne : Blockly rétablit la visibilité des champs d'après celle de leur
+ * ligne, masquer un champ isolé est sans effet.
+ */
+export function refreshVisibility(block: Blockly.Block): void {
+  const target = block as ComponentBlock;
   if (block.isDeadOrDying()) return;
-  const open = block.optionsOpen_;
-  for (const [use, label, value] of [
-    ["USE_COLOR", "LBL_COLOR", "COLOR"],
-    ["USE_BRIGHT", "LBL_BRIGHT", "BRIGHT"],
-    ["USE_TRANS", "LBL_TRANS", "TRANS"],
-  ]) {
-    const check = block.getField(use);
-    if (!check) continue;
+  const open = target.optionsOpen_;
+  for (const [row, use] of PARAM_ROWS) {
+    const input = block.getInput(row);
+    if (!input) continue;
     const on = block.getFieldValue(use) === "TRUE";
-    const supported = block.caps_?.[use] ?? true;
-    check.setVisible(open && (supported || on));
-    block.getField(label)?.setVisible((open && supported) || on);
-    block.getField(value)?.setVisible(on);
-    // les unités suivent leur valeur
-    block.getField(value === "BRIGHT" ? "LBL_PCT" : value === "TRANS" ? "LBL_S" : "")?.setVisible(on);
+    const supported = target.caps_?.[use] ?? true;
+    // posé : toujours visible (même non géré par la lumière, pour que la validation le signale) ; sinon seulement
+    // quand l'engrenage est ouvert ET que la lumière gère ce paramètre
+    input.setVisible(on || (open && supported));
   }
   block.getInput("OPTS")?.setVisible(open);
-  const params = block.getInput("PARAMS");
-  if (params) {
-    const anyOn = ["USE_COLOR", "USE_BRIGHT", "USE_TRANS"].some((f) => block.getFieldValue(f) === "TRUE");
-    params.setVisible(anyOn || (open && Object.values(block.caps_ ?? {}).some(Boolean)));
-  }
   if (block instanceof Blockly.BlockSvg) block.queueRender();
 }
 
 function shape(this: ComponentBlock) {
   const keep: Record<string, unknown> = {};
   for (const name of FIELDS) if (this.getField(name)) keep[name] = this.getFieldValue(name);
-  for (const name of ["HEAD", "PARAMS", "OPTS"]) if (this.getInput(name)) this.removeInput(name);
+  for (const name of ["HEAD", "P_COLOR", "P_BRIGHT", "P_TRANS", "OPTS"]) if (this.getInput(name)) this.removeInput(name);
 
   const found = lookup(this);
   this.setColour(found ? HUE[this.kind_] : NOT_FOUND_COLOUR);
@@ -106,15 +106,15 @@ function shape(this: ComponentBlock) {
     // Les trois paramètres existent toujours : un programme qui en pose un que la lumière ne gère pas
     // doit le garder (la validation le signale sur ce bloc) ; seul le menu ne le propose pas.
     this.caps_ = { USE_COLOR: Boolean(light?.supports_color), USE_BRIGHT: Boolean(light?.supports_brightness), USE_TRANS: Boolean(light?.supports_transition) };
-    const params = this.appendDummyInput("PARAMS");
     const refresh = () => setTimeout(() => refreshVisibility(this), 0);
-    const checkbox = () => new Blockly.FieldCheckbox(false, (value) => {
-      refresh();
-      return value;
-    });
-    params.appendField(checkbox(), "USE_COLOR").appendField("couleur", "LBL_COLOR").appendField(new FieldColour("#ff8a2b"), "COLOR");
-    params.appendField(checkbox(), "USE_BRIGHT").appendField("luminosité", "LBL_BRIGHT").appendField(new Blockly.FieldNumber(100, 0, 100, 0.01), "BRIGHT").appendField("%", "LBL_PCT");
-    params.appendField(checkbox(), "USE_TRANS").appendField("transition", "LBL_TRANS").appendField(new Blockly.FieldNumber(1, 0, 3600, 0.1), "TRANS").appendField("s", "LBL_S");
+    const checkbox = () =>
+      new Blockly.FieldCheckbox(false, (value) => {
+        refresh(); // le validateur s'exécute avant l'écriture de la valeur
+        return value;
+      });
+    this.appendDummyInput("P_COLOR").appendField(checkbox(), "USE_COLOR").appendField("couleur").appendField(new FieldColour("#ff8a2b"), "COLOR");
+    this.appendDummyInput("P_BRIGHT").appendField(checkbox(), "USE_BRIGHT").appendField("luminosité").appendField(new Blockly.FieldNumber(100, 0, 100, 0.01), "BRIGHT").appendField("%");
+    this.appendDummyInput("P_TRANS").appendField(checkbox(), "USE_TRANS").appendField("transition").appendField(new Blockly.FieldNumber(1, 0, 3600, 0.1), "TRANS").appendField("s");
   }
 
   const options = this.appendDummyInput("OPTS");
