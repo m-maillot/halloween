@@ -7,6 +7,7 @@
     halloween-cli button watch                    # affiche les appuis
     halloween-cli gpio-check [--active]           # compatibilité GPIO du Pi utilisé
     halloween-cli serve                           # moteur en continu : reprise, boutons, planning
+    halloween-cli api [--port 8080]               # moteur + API HTTP + interface (service complet)
     halloween-cli ha-check [--active]             # Home Assistant : connexion, entités, capacités
     halloween-cli simulate scenario-principal     # timeline sans rien actionner
     halloween-cli run scenario-principal          # exécution réelle [--ha-dry-run]
@@ -88,6 +89,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     serve = sub.add_parser("serve", help="lancer le moteur (boutons, planning) en continu")
     serve.add_argument("--ha-dry-run", action="store_true", help="n'envoie rien à Home Assistant")
+
+    api = sub.add_parser("api", help="moteur + API HTTP + interface (le service complet)")
+    api.add_argument("--host", default="0.0.0.0", help="adresse d'écoute [%(default)s]")
+    api.add_argument("--port", type=int, default=8080, help="port [%(default)s]")
+    api.add_argument(
+        "--ui-dir",
+        default=os.environ.get("HALLOWEEN_UI_DIR"),
+        help="dossier du build de l'interface (HALLOWEEN_UI_DIR)",
+    )
+    api.add_argument("--ha-dry-run", action="store_true", help="n'envoie rien à Home Assistant")
 
     ha_check = sub.add_parser(
         "ha-check", help="vérifier Home Assistant et les capacités des lumières"
@@ -255,6 +266,51 @@ async def cmd_serve(args: argparse.Namespace, backend: Backend, out: TextIO) -> 
     return EXIT_OK
 
 
+async def cmd_api(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
+    """Le service complet : moteur, API sous /api et interface, jusqu'à Ctrl+C / SIGTERM."""
+    from halloween.api import create_app
+    from halloween.api.auth import load_or_create_token
+    from halloween.api.server import run_server
+    from halloween.app import StartupReport
+
+    store = Store(Path(args.data_dir))
+    store.initialize()
+    try:
+        token, origin = load_or_create_token(store.root)
+    except ValueError as exc:
+        raise CliError(str(exc)) from exc
+
+    def say(line: str) -> None:
+        print(line, file=out)
+        out.flush()
+
+    def ready(report: StartupReport) -> None:
+        for issue in report.issues:
+            say(f"  {'attention' if issue.severity == 'warning' else 'ÉCARTÉ'} : {issue.message}")
+        say(f"Moteur prêt : {report.programs} programme(s), {report.triggers} déclencheur(s).")
+        say(f"API : http://{args.host}:{args.port}/api  (jeton : {origin})")
+        say("Ctrl+C ou SIGTERM pour arrêter.")
+
+    ui_dir = Path(args.ui_dir) if args.ui_dir else None
+    app = create_app(
+        store,
+        backend,
+        token=token,
+        static_dir=ui_dir,
+        ha_dry_run=args.ha_dry_run,
+        write=say,
+        on_ready=ready,
+    )
+    try:
+        await run_server(app, args.host, args.port)
+    finally:
+        say("Service arrêté, relais éteints.")
+    failure = getattr(app.state, "startup_error", None)
+    if failure is not None:
+        raise CliError(str(failure))
+    return EXIT_OK
+
+
 async def cmd_button_watch(args: argparse.Namespace, backend: Backend, out: TextIO) -> int:
     _, config = _load(args)
     if not config.buttons:
@@ -343,6 +399,7 @@ COMMANDS: dict[str, Callable[[argparse.Namespace, Backend, TextIO], Awaitable[in
     "relay": cmd_relay,
     "run": cmd_run,
     "serve": cmd_serve,
+    "api": cmd_api,
     "simulate": cmd_simulate,
 }
 
