@@ -86,6 +86,7 @@ test("une erreur du moteur est posée sur le bon bloc et bloque l'enregistrement
   expect(item).toBeEnabled(); // le bloc « b » a été retrouvé
   expect(within(panel()).getByText("1 erreur")).toBeInTheDocument();
   expect(save()).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Lancer" })).toBeDisabled(); // un scénario invalide ne se lance pas
 });
 
 test("l'erreur d'une pile implicite est rattachée à son bloc propriétaire", async () => {

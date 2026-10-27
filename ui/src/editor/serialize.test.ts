@@ -327,3 +327,22 @@ test("une impulsion sur un relais introuvable reste une impulsion (et non un all
   loadProgram(ws, source);
   expect(workspaceToProgram(ws, meta).scripts).toEqual(source.scripts);
 });
+
+test("une lumière sans couleur ni transition (guirlande) ne propose que la luminosité dans ses options", () => {
+  const rows = (id: string) => Object.fromEntries(["P_COLOR", "P_BRIGHT", "P_TRANS"].map((row) => [row, ws.getBlockById(id)!.getInput(row)!.isVisible()]));
+  loadProgram(ws, program([{ id: "g", type: "light", target: "guirlande", state: "on" }]));
+  expect(rows("g")).toEqual({ P_COLOR: false, P_BRIGHT: false, P_TRANS: false }); // engrenage fermé, rien de posé
+  (ws.getBlockById("g") as unknown as { toggleOptions_(): void }).toggleOptions_(); // ouvre l'engrenage
+  expect(rows("g")).toEqual({ P_COLOR: false, P_BRIGHT: true, P_TRANS: false });
+  // une lumière complète (bandeau) propose les trois
+  loadProgram(ws, program([{ id: "b", type: "light", target: "bandeau", state: "on" }]));
+  (ws.getBlockById("b") as unknown as { toggleOptions_(): void }).toggleOptions_();
+  expect(rows("b")).toEqual({ P_COLOR: true, P_BRIGHT: true, P_TRANS: true });
+});
+
+test("un paramètre posé reste visible engrenage fermé, même si la lumière ne le gère pas (pour que la validation le signale)", () => {
+  loadProgram(ws, program([{ id: "g", type: "light", target: "guirlande", state: "on", rgb_color: [1, 2, 3] }]));
+  const input = (row: string) => ws.getBlockById("g")!.getInput(row)!.isVisible();
+  expect(input("P_COLOR")).toBe(true);
+  expect(input("P_TRANS")).toBe(false);
+});
