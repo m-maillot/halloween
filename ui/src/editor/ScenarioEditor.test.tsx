@@ -199,3 +199,76 @@ test("un « si » sans condition reçoit un message clair, pas le message techni
   expect(within(panel()).queryByText(/valid dictionary/)).toBeNull();
   expect(save()).toBeDisabled();
 });
+
+// ------------------------------------------------------------------ simulation
+
+import userEvent from "@testing-library/user-event";
+
+const principal = (await import("./fixtures/simulation-principal.json")).default;
+
+test("Simuler envoie le programme à l'écran (même non enregistré) et affiche la frise", async () => {
+  let received: unknown = null;
+  report = () => ({ valid: true, issues: [] });
+  // le moteur simulé répond avec la capture réelle
+  vi.unstubAllGlobals();
+  calls = stubEngine(({ path, method, body }) => {
+    if (path === "/api/status") return STATUS;
+    if (path === "/api/devices") return { ...devices, relays: [...devices.relays, { id: "fantome", name: "Fantôme", pin: 1, mode: "latched" }] };
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") return program([relay("a", "on"), relay("b", "off")]);
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+    if (path === "/api/simulate") {
+      received = body;
+      return principal;
+    }
+  });
+  await open();
+  const user = userEvent.setup();
+  const block = ws().newBlock("hw_log", "extra"); // modification non enregistrée
+  ws().getBlockById("s1")!.nextConnection!.connect(block.previousConnection!);
+  await user.click(screen.getByRole("button", { name: "Simuler" }));
+  const frise = await screen.findByRole("region", { name: "Frise temporelle" });
+  const sent = received as { program: { scripts: { root: { children: { id: string }[] } }[] }; horizon_s: number; button_presses: unknown[] };
+  expect(sent.program.scripts[0].root.children.map((c) => c.id)).toContain("extra");
+  expect(sent.button_presses).toEqual([]);
+  expect(within(frise).getByText("Terminé en 17 s.")).toBeInTheDocument();
+  // une ligne par composant, chaque période décrite pour les lecteurs d'écran
+  expect(within(frise).getByRole("img", { name: "Orage : allumé de 3 s à 11 s" })).toBeInTheDocument();
+  expect(within(frise).getByRole("img", { name: "epouvantail : allumé de 17 s jusqu'à la fin (jamais éteint)" })).toBeInTheDocument();
+  expect(within(frise).getAllByRole("listitem")).toHaveLength(5);
+  expect(calls.some((c) => c.path === "/api/components/relays/orage/test")).toBe(false); // rien n'est actionné
+});
+
+test("Simuler est désactivé tant qu'une erreur subsiste", async () => {
+  report = () => ({ valid: false, issues: [{ severity: "error", code: "x", message: "faux", node_id: "a" }] });
+  await open();
+  expect(screen.getByRole("button", { name: "Simuler" })).toBeDisabled();
+});
+
+test("les appuis simulés sont envoyés avec la simulation", async () => {
+  let received: { button_presses: unknown[] } | null = null;
+  vi.unstubAllGlobals();
+  calls = stubEngine(({ path, method, body }) => {
+    if (path === "/api/status") return STATUS;
+    if (path === "/api/devices") return { ...devices, buttons: [{ id: "bp", name: "Bouton principal", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 400 }] };
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") return program([relay("a", "on")]);
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+    if (path === "/api/simulate") {
+      received = body as { button_presses: unknown[] };
+      return { ...principal, status: "deadlock" };
+    }
+  });
+  await open();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Simuler" }));
+  const section = await screen.findByRole("region", { name: "Simulation" });
+  expect(within(section).getByText(/attend un appui de bouton/)).toBeInTheDocument();
+  await user.selectOptions(within(section).getByLabelText("Appui"), "double");
+  await user.clear(within(section).getByLabelText("À (s)"));
+  await user.type(within(section).getByLabelText("À (s)"), "7");
+  await user.click(within(section).getByRole("button", { name: "Ajouter l'appui" }));
+  expect(within(section).getByText(/Bouton principal : appui double à 7 s/)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Simuler" }));
+  await waitFor(() => expect((received as { button_presses: unknown[] } | null)?.button_presses).toEqual([{ t: 7, button: "bp", event: "double" }]));
+});

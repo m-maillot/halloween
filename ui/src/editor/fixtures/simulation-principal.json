@@ -1,0 +1,66 @@
+{
+ "status": "completed",
+ "duration_s": 17.0,
+ "timeline": [
+  {
+   "t": 0.0,
+   "component": "bandeau",
+   "action": "on",
+   "data": {
+    "rgb_color": [
+     255,
+     0,
+     0
+    ],
+    "brightness": 40,
+    "transition": 2.0
+   }
+  },
+  {
+   "t": 3.0,
+   "component": "orage",
+   "action": "on",
+   "data": {}
+  },
+  {
+   "t": 3.0,
+   "component": "fantome",
+   "action": "on",
+   "data": {}
+  },
+  {
+   "t": 11.0,
+   "component": "fantome",
+   "action": "off",
+   "data": {}
+  },
+  {
+   "t": 11.0,
+   "component": "orage",
+   "action": "off",
+   "data": {}
+  },
+  {
+   "t": 11.0,
+   "component": "squelette",
+   "action": "on",
+   "data": {}
+  },
+  {
+   "t": 17.0,
+   "component": "squelette",
+   "action": "off",
+   "data": {}
+  },
+  {
+   "t": 17.0,
+   "component": "epouvantail",
+   "action": "on",
+   "data": {}
+  }
+ ],
+ "still_on": [
+  "epouvantail"
+ ],
+ "error": null
+}

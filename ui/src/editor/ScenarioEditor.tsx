@@ -8,6 +8,8 @@ import { Button, Field } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { BlocklyEditor } from "./BlocklyEditor";
 import { IssuePanel } from "./IssuePanel";
+import { SimulationPanel, type Press } from "./SimulationPanel";
+import type { SimulationOut } from "./timeline";
 import { loadProgram, workspaceToProgram, type Program } from "./serialize";
 import { useLiveValidation } from "./useLiveValidation";
 import { summary } from "./validation";
@@ -20,6 +22,9 @@ export function ScenarioEditor() {
   const [program, setProgram] = useState<Program | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [simulation, setSimulation] = useState<SimulationOut | null>(null);
+  const [presses, setPresses] = useState<Press[]>([]);
+  const [simulating, setSimulating] = useState(false);
 
   const view = () => {
     const ws = workspace.current;
@@ -87,6 +92,23 @@ export function ScenarioEditor() {
     }
   }
 
+  async function simulate() {
+    const body = build();
+    if (!body) return;
+    setSimulating(true);
+    try {
+      setSimulation(
+        await unwrap<SimulationOut>(
+          api.POST("/api/simulate", { body: { program: body as never, button_presses: presses, horizon_s: 600, seed: 0 } }),
+        ),
+      );
+    } catch (error) {
+      toasts.error(error);
+    } finally {
+      setSimulating(false);
+    }
+  }
+
   async function save() {
     const body = build();
     if (!body || !program) return;
@@ -113,6 +135,13 @@ export function ScenarioEditor() {
       <div className="editor-bar">
         <Field label="Nom du scénario" value={name} onChange={(e) => setName(e.target.value)} />
         <Button
+          disabled={simulating || !program || blocking}
+          title={blocking ? "Corrigez les erreurs avant de simuler" : "Joue le scénario en temps virtuel, sans rien actionner"}
+          onClick={() => void simulate()}
+        >
+          Simuler
+        </Button>
+        <Button
           variant="primary"
           disabled={busy || !program || blocking}
           title={blocking ? "Corrigez les erreurs avant d'enregistrer" : undefined}
@@ -125,6 +154,9 @@ export function ScenarioEditor() {
         <BlocklyEditor devices={devices} onReady={ready} onChange={schedule} />
         <IssuePanel issues={issues} state={state} onSelect={select} />
       </div>
+      {simulation && (
+        <SimulationPanel result={simulation} devices={devices} presses={presses} onPresses={setPresses} onClose={() => setSimulation(null)} />
+      )}
     </div>
   );
 }
