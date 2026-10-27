@@ -12,7 +12,8 @@ import secrets
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from fastapi import HTTPException, Request, WebSocket, status
+from fastapi import Depends, HTTPException, WebSocket, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from halloween.store import SECRET_MODE, write_atomic
 
@@ -50,8 +51,14 @@ def make_auth(expected: str) -> tuple[Callable, Callable[[WebSocket], bool]]:
     def valid(candidate: str | None) -> bool:
         return candidate is not None and secrets.compare_digest(candidate, expected)
 
-    async def require_token(request: Request) -> None:
-        if not valid(bearer(request.headers.get("Authorization"))):
+    # `HTTPBearer` déclare le schéma d'authentification dans l'OpenAPI (clients générés) ;
+    # le refus (401) est décidé ici, avec un message uniforme.
+    scheme = HTTPBearer(auto_error=False, description="Jeton d'API (`api-token`)")
+
+    async def require_token(
+        credentials: HTTPAuthorizationCredentials | None = Depends(scheme),  # noqa: B008
+    ) -> None:
+        if credentials is None or not valid(credentials.credentials.strip()):
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED,
                 detail="jeton d'API manquant ou invalide",

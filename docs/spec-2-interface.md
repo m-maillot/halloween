@@ -273,6 +273,16 @@ Décisions prises : React ; images personnelles + bibliothèque d'icônes intég
 
 Aucune question ouverte.
 
+## Contrat d'API (`docs/openapi.json`)
+
+Le contrat OpenAPI de l'API est **versionné** dans [`docs/openapi.json`](openapi.json) (régénéré par `make openapi`, vérifié par un test). L'interface en génère son client TypeScript, par exemple :
+
+```bash
+npx openapi-typescript docs/openapi.json -o ui/src/api/schema.d.ts
+```
+
+Il décrit toutes les routes, le schéma `Program` (blocs, conditions, scripts), les erreurs structurées et, sous `x-websocket` et `components.schemas.Event`, les messages du WebSocket `/api/events` (union discriminée sur `type`). L'authentification est un jeton Bearer, sauf `health` et `get_image`.
+
 ## 11. Impacts sur la spec 1
 
 - Ajouter le champ `editor` (libre, limité en taille) au schéma de programme.

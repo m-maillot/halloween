@@ -158,4 +158,13 @@ def create_app(
                 raise HTTPException(404, "route d'API inconnue")
             return placeholder_response()
 
+    def contract() -> dict:
+        """Contrat enrichi (événements WebSocket, sécurité), aussi servi sur /openapi.json."""
+        from halloween.api.openapi import build_openapi
+
+        if not hasattr(app.state, "contract"):
+            app.state.contract = build_openapi(app)
+        return app.state.contract
+
+    app.openapi = contract  # type: ignore[method-assign]
     return app
