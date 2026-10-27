@@ -29,6 +29,7 @@ TICK_S = 15.0
 # Une échéance dépassée de plus que GRACE_S (arrêt du moteur, saut d'horloge) est sautée plutôt
 # que lancée en retard, au mauvais moment du spectacle.
 GRACE_S = 60.0
+MAX_CATCH_UP = 1000
 
 
 class TriggerEngine:
@@ -128,9 +129,17 @@ class TriggerEngine:
                 if compiled is None:
                     continue
                 expression, tz = compiled
+                # Échéance la plus récente entre le dernier réveil et maintenant (borné : un
+                # `* * * * *` après une longue pause ne doit pas boucler indéfiniment).
                 due = expression.next_after(last.astimezone(tz))
-                if due is not None and due <= current:
-                    lateness = (current - due).total_seconds()
+                latest = None
+                for _ in range(MAX_CATCH_UP):
+                    if due is None or due > current:
+                        break
+                    latest = due
+                    due = expression.next_after(due)
+                if latest is not None:
+                    lateness = (current - latest).total_seconds()
                     if lateness <= GRACE_S:
                         self._spawn(self._fire(trigger))
                     else:
@@ -138,7 +147,7 @@ class TriggerEngine:
                             "échéance manquée, non lancée",
                             extra={
                                 "trigger": trigger.id,
-                                "due": due.isoformat(),
+                                "due": latest.isoformat(),
                                 "late_s": lateness,
                             },
                         )

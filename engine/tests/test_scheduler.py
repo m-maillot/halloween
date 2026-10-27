@@ -194,6 +194,16 @@ async def test_a_due_time_missed_by_a_clock_jump_is_skipped_not_launched_late(wo
     assert world.started() == []
 
 
+@scenario(at(2026, 10, 31, 15, 30, 0), [schedule(cron="0 * * * *")])
+async def test_after_a_long_pause_only_the_most_recent_due_time_counts(world):
+    await asyncio.sleep(10)
+    world.jump = timedelta(hours=3, minutes=29, seconds=50)  # l'heure saute à ~19:00:10
+    await asyncio.sleep(20)
+    assert (
+        len(world.started()) == 1
+    )  # une seule fois, pour 19:00 (16:00, 17:00, 18:00 sont périmés)
+
+
 @scenario(at(2026, 10, 31, 17, 58, 0), [schedule(cron="0 18 * * *")])
 async def test_a_slightly_late_wake_up_still_fires(world):
     await asyncio.sleep(10)
