@@ -264,7 +264,7 @@ Stockés dans `triggers.json`, gérés par l'API :
 
 - **Bouton** : cible un bouton du catalogue + un événement (`short`, `long`, `double`). Plusieurs déclencheurs possibles par bouton (un par événement).
 - **Appui long = arrêt d'urgence** proposé par défaut à la création d'un bouton.
-- **Planning** : cron. **API** : lancement manuel.
+- **Planning** : cron à 5 champs (`*`, listes, intervalles, pas, noms de mois et de jours, alias `@daily`…), évalué à l'heure murale du `timezone` du déclencheur ou, à défaut, du fuseau du Pi. Heure d'été : une heure qui n'existe pas est sautée ce jour-là, une heure qui se répète ne déclenche qu'une fois. Le planning se réveille au plus tard toutes les 15 s pour détecter un saut d'horloge (le Pi se recale par le réseau après le démarrage) : une échéance dépassée de plus de 60 s est **sautée** plutôt que lancée en retard. **API** : lancement manuel.
 - Un déclencheur ne peut viser qu'un programme existant, validé.
 
 ## 8. API

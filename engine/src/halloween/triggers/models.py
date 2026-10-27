@@ -6,12 +6,14 @@ Stockés dans `triggers.json` (spec 1 §7). Deux sources : un bouton physique, u
 from __future__ import annotations
 
 from typing import Annotated, Literal, Self
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, TypeAdapter, ValidationError, model_validator
 
 from halloween.config.models import Model, Slug
 from halloween.issues import Issue
 from halloween.program.runs import Policy
+from halloween.triggers.cron import CronError, CronExpression
 
 
 class ButtonTrigger(Model):
@@ -43,6 +45,19 @@ class ScheduleTrigger(Model):
     program: Slug
     policy: Policy = "ignore"
     enabled: bool = True
+
+    @model_validator(mode="after")
+    def _check_schedule(self) -> Self:
+        try:
+            CronExpression(self.cron)
+        except CronError as exc:
+            raise ValueError(f"cron invalide : {exc}") from exc
+        if self.timezone is not None:
+            try:
+                ZoneInfo(self.timezone)
+            except (ZoneInfoNotFoundError, ValueError) as exc:
+                raise ValueError(f"fuseau horaire inconnu : {self.timezone}") from exc
+        return self
 
 
 Trigger = Annotated[ButtonTrigger | ScheduleTrigger, Field(discriminator="source")]
