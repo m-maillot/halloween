@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   Axe,
   Bell,
@@ -19,7 +20,6 @@ import {
   Hand,
   Lamp,
   Lightbulb,
-  type LucideIcon,
   Moon,
   Music,
   Plug,
@@ -34,26 +34,41 @@ import {
   Zap,
 } from "lucide-react";
 
-import { Bat, Cauldron, Pumpkin, Scarecrow, Spider, Tombstone } from "./customIcons";
+import { GAME_ICONS } from "./gameIconsData";
 
 export type Kind = "relays" | "buttons" | "lights" | "switches";
 
 /** Bibliothèque intégrée : `image: "builtin:<nom>"`. Icônes Lucide (licence ISC, sans attribution). */
 /** Origine de chaque icône (licence et auteurs dans `about/credits.ts`). */
-export type IconSource = "lucide" | "feather" | "project";
+export type IconSource = "lucide" | "feather" | "game-icons";
 
-export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon; source?: IconSource }> = {
+/** Ce que les icônes de la bibliothèque savent recevoir (Lucide et game-icons.net). */
+export interface IconProps {
+  size?: number | string;
+  color?: string;
+  className?: string;
+  strokeWidth?: number | string;
+  "aria-hidden"?: boolean | "true" | "false";
+}
+export type IconComponent = ComponentType<IconProps>;
+
+/** Icône game-icons.net : tracé plein (grille 512), couleur du texte courant ou `color`. */
+function gameIcon(d: string): IconComponent {
+  return function GameIconView({ size = 24, color = "currentColor", className, "aria-hidden": hidden }: IconProps) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width={size} height={size} fill={color} className={className} aria-hidden={hidden}>
+        <path d={d} />
+      </svg>
+    );
+  };
+}
+
+export const BUILTIN_ICONS: Record<string, { label: string; icon: IconComponent; source?: IconSource; author?: string }> = {
   ghost: { label: "Fantôme", icon: Ghost },
   skull: { label: "Squelette crâne", icon: Skull },
   bone: { label: "Os", icon: Bone },
   cat: { label: "Chat noir", icon: Cat },
   eye: { label: "Œil", icon: Eye },
-  spider: { label: "Araignée", icon: Spider, source: "project" },
-  pumpkin: { label: "Citrouille", icon: Pumpkin, source: "project" },
-  bat: { label: "Chauve-souris", icon: Bat, source: "project" },
-  scarecrow: { label: "Épouvantail", icon: Scarecrow, source: "project" },
-  cauldron: { label: "Chaudron", icon: Cauldron, source: "project" },
-  tombstone: { label: "Pierre tombale", icon: Tombstone, source: "project" },
   moon: { label: "Lune", icon: Moon, source: "feather" },
   tree: { label: "Arbre épouvantail", icon: TreePine },
   lightning: { label: "Éclair", icon: Zap },
@@ -82,6 +97,11 @@ export const BUILTIN_ICONS: Record<string, { label: string; icon: LucideIcon; so
   hammer: { label: "Marteau", icon: Hammer },
   biohazard: { label: "Danger", icon: Biohazard },
 };
+
+// Les icônes de game-icons.net s'ajoutent à la bibliothèque, chacune avec son auteur.
+for (const [name, icon] of Object.entries(GAME_ICONS)) {
+  BUILTIN_ICONS[name] = { label: icon.label, icon: gameIcon(icon.d), source: "game-icons", author: icon.author };
+}
 
 export const sourceOf = (name: string): IconSource => BUILTIN_ICONS[name]?.source ?? "lucide";
 

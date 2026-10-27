@@ -1,4 +1,5 @@
 import { BUILTIN_ICONS, sourceOf, type IconSource } from "../catalog/icons";
+import { GAME_ICON_AUTHORS } from "../catalog/gameIconsData";
 
 export interface Credit {
   name: string;
@@ -21,12 +22,36 @@ export const SOFTWARE: Credit[] = [
 export const ICON_SOURCES: Record<IconSource, Credit> = {
   lucide: { name: "Lucide", license: "ISC", author: "Lucide Icons and Contributors", note: "https://lucide.dev" },
   feather: { name: "Feather (via Lucide)", license: "MIT", author: "Cole Bemis", note: "https://feathericons.com" },
-  project: { name: "Icônes du projet", license: "propriété du projet", author: "dessinées pour ce projet", note: "citrouille, chauve-souris, araignée, épouvantail, chaudron, pierre tombale" },
+  "game-icons": {
+    name: "game-icons.net",
+    license: "CC BY 3.0",
+    author: "voir la liste des auteurs ci-dessous",
+    note: "https://game-icons.net, fond retiré et couleur du thème",
+  },
 };
 
 /** Nombre d'icônes de la bibliothèque par origine. */
 export function iconCounts(): Record<IconSource, number> {
-  const counts: Record<IconSource, number> = { lucide: 0, feather: 0, project: 0 };
+  const counts: Record<IconSource, number> = { lucide: 0, feather: 0, "game-icons": 0 };
   for (const name of Object.keys(BUILTIN_ICONS)) counts[sourceOf(name)] += 1;
   return counts;
+}
+
+export interface AuthorCredit {
+  key: string;
+  name: string;
+  url?: string;
+  icons: string[];
+}
+
+/** Auteurs des icônes game-icons.net utilisées, avec leurs icônes (la licence CC BY exige de les nommer). */
+export function gameIconAuthors(): AuthorCredit[] {
+  const byAuthor = new Map<string, string[]>();
+  for (const icon of Object.values(BUILTIN_ICONS)) {
+    if (!icon.author) continue;
+    byAuthor.set(icon.author, [...(byAuthor.get(icon.author) ?? []), icon.label]);
+  }
+  return [...byAuthor.entries()]
+    .map(([key, icons]) => ({ key, ...GAME_ICON_AUTHORS[key], icons: icons.sort((a, b) => a.localeCompare(b, "fr")) }))
+    .sort((a, b) => b.icons.length - a.icons.length || a.name.localeCompare(b.name));
 }

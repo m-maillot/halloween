@@ -250,7 +250,12 @@ test("À propos : version, origine des icônes et logiciels tiers sont affichés
   expect(lucide).toHaveTextContent("Lucide — ");
   expect(lucide).toHaveTextContent("licence ISC");
   expect(feather).toHaveTextContent("Cole Bemis");
-  expect(project).toHaveTextContent("citrouille");
+  expect(project).toHaveTextContent("game-icons.net");
+  expect(project).toHaveTextContent("CC BY 3.0");
+  const authors = within(about).getByRole("list", { name: "Auteurs des icônes game-icons.net" });
+  expect(within(authors).getByText("Lorc")).toBeInTheDocument();
+  expect(within(authors).getByRole("link", { name: "Delapouite" })).toHaveAttribute("href", "http://delapouite.com");
+  expect(within(about).getByRole("link", { name: "GAME-ICONS-LICENSE.txt" })).toHaveAttribute("href", "/GAME-ICONS-LICENSE.txt");
   const software = within(about).getByRole("list", { name: "Logiciels embarqués" });
   expect(within(about).getByRole("link", { name: "LICENSES.txt" })).toHaveAttribute("href", "/LICENSES.txt");
   const credit = (name: RegExp) => within(software).getAllByRole("listitem").find((li) => name.test(li.textContent ?? ""))!;

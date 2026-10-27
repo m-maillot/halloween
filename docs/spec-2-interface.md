@@ -65,7 +65,7 @@ Quatre onglets : Relais, Boutons, Lights, Switches. Chacun affiche une grille de
 **Formulaire commun** : nom, image, bouton **Tester**.
 
 **Choix de l'image** : deux sources, au choix dans un sélecteur à deux onglets.
-- **Bibliothèque intégrée** : une trentaine d'icônes Halloween livrées avec l'application (fantôme, squelette, épouvantail, citrouille, éclair / orage, araignée, chauve-souris, bougie, lumière, prise…), recherchables. Stockées comme `image: "builtin:<nom>"`. *Jeu retenu (lot 11) : 38 icônes, Lucide (ISC) et Feather (MIT, via Lucide) pour 32, 6 dessinées pour le projet (citrouille, chauve-souris, araignée, épouvantail, chaudron, pierre tombale) ; attributions dans Réglages › À propos. game-icons.net (CC BY 3.0) n'a pas été embarqué : son téléchargement n'a pas été autorisé pendant le développement.*
+- **Bibliothèque intégrée** : une trentaine d'icônes Halloween livrées avec l'application (fantôme, squelette, épouvantail, citrouille, éclair / orage, araignée, chauve-souris, bougie, lumière, prise…), recherchables. Stockées comme `image: "builtin:<nom>"`. *Jeu retenu (lot 11) : 64 icônes. 32 de **game-icons.net** (CC BY 3.0, Lorc, Delapouite, Carl Olsen, Cathelineau, DarkZaitzev : fond retiré, couleur du thème) pour l'ambiance Halloween, 32 de Lucide (ISC) / Feather (MIT) pour l'usage courant (lumière, prise, bouton…) ; attributions par auteur dans Réglages › À propos et dans `GAME-ICONS-LICENSE.txt` livré avec le build.*
 - **Image personnelle** : téléversement avec aperçu, recadrage carré, formats png/jpg/webp. Stockée comme nom de fichier sous `/images/`.
 
 Une icône par défaut est attribuée selon le type de composant tant qu'aucune image n'est choisie.
