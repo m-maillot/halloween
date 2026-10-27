@@ -398,3 +398,190 @@ test("verrouillé : le code est demandé pour lancer", async () => {
   await user.click(screen.getByRole("button", { name: "Valider" }));
   await waitFor(() => expect(code).toBe("1234"));
 });
+
+// ------------------------------------------------------------------ enregistrement, brouillon, conflit
+
+const puts = () => calls.filter((c) => c.method === "PUT" && c.path === "/api/programs/scene");
+const addBlock = (id: string) => {
+  const block = ws().newBlock("hw_log", id);
+  ws().getBlockById("s1")!.nextConnection!.connect(block.previousConnection!);
+};
+const draftKey = "halloween.draft.scene";
+
+test("Ctrl+S enregistre avec la révision connue (If-Match) et efface le brouillon", async () => {
+  await open();
+  localStorage.setItem(draftKey, JSON.stringify({ baseRevision: 3, savedAt: 1, program: program([]) }));
+  const user = userEvent.setup();
+  await act(async () => addBlock("n1"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Lancer" })).toBeDisabled()); // modifié
+  await user.keyboard("{Control>}s{/Control}");
+  await waitFor(() => expect(puts().length).toBe(1));
+  expect(puts()[0].headers.get("If-Match")).toBe('"3"');
+  expect(localStorage.getItem(draftKey)).toBeNull();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Lancer" })).toBeEnabled()); // à jour
+});
+
+test("Ctrl+S ne fait rien tant qu'une erreur bloque l'enregistrement", async () => {
+  report = () => ({ valid: false, issues: [{ severity: "error", code: "x", message: "faux", node_id: "a" }] });
+  await open();
+  await userEvent.setup().keyboard("{Control>}s{/Control}");
+  expect(puts()).toHaveLength(0);
+});
+
+test("un brouillon est écrit 1 s après la dernière modification, puis proposé à la réouverture", async () => {
+  await open();
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  await act(async () => {
+    addBlock("n1");
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(localStorage.getItem(draftKey)).toBeNull();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(900); // 950 ms après la modification : pas encore
+  });
+  expect(localStorage.getItem(draftKey)).toBeNull();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(200);
+  });
+  const stored = JSON.parse(localStorage.getItem(draftKey)!);
+  expect(stored.baseRevision).toBe(3);
+  expect(JSON.stringify(stored.program)).toContain("n1");
+  vi.useRealTimers();
+});
+
+test("réouverture : le brouillon est proposé ; Restaurer remet les blocs et marque le scénario modifié", async () => {
+  const withExtra = program([relay("a", "on"), relay("b", "off"), { id: "n1", type: "log", message: "brouillon" }]);
+  localStorage.setItem(draftKey, JSON.stringify({ baseRevision: 3, savedAt: Date.parse("2026-10-27T10:00:00Z"), program: withExtra }));
+  await open();
+  const user = userEvent.setup();
+  expect(await screen.findByText(/Un brouillon non enregistré du/)).toBeInTheDocument();
+  expect(ws().getBlockById("n1")).toBeNull(); // rien n'est restauré sans accord
+  await user.click(screen.getByRole("button", { name: "Restaurer le brouillon" }));
+  expect(ws().getBlockById("n1")).not.toBeNull();
+  expect(screen.queryByText(/Un brouillon non enregistré/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Lancer" })).toBeDisabled(); // modifié, pas enregistré
+});
+
+test("Supprimer le brouillon l'efface sans toucher aux blocs", async () => {
+  localStorage.setItem(draftKey, JSON.stringify({ baseRevision: 3, savedAt: 1, program: program([]) }));
+  await open();
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Supprimer" }));
+  expect(localStorage.getItem(draftKey)).toBeNull();
+  expect(ws().getBlockById("a")).not.toBeNull();
+});
+
+test("un brouillon commencé sur une autre révision le dit", async () => {
+  localStorage.setItem(draftKey, JSON.stringify({ baseRevision: 1, savedAt: 1, program: program([]) }));
+  await open();
+  expect(await screen.findByText(/le scénario a changé depuis/)).toBeInTheDocument();
+});
+
+test("tant qu'un brouillon est proposé, il n'est pas écrasé par de nouvelles modifications", async () => {
+  const kept = { baseRevision: 3, savedAt: 42, program: program([]) };
+  localStorage.setItem(draftKey, JSON.stringify(kept));
+  await open();
+  await screen.findByText(/Un brouillon non enregistré/);
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  await act(async () => {
+    addBlock("n1");
+    await vi.advanceTimersByTimeAsync(2500);
+  });
+  expect(JSON.parse(localStorage.getItem(draftKey)!).savedAt).toBe(42);
+  vi.useRealTimers();
+});
+
+test("un stockage local indisponible n'empêche rien", async () => {
+  const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("bloqué");
+  });
+  await open();
+  expect(screen.queryByText(/Un brouillon non enregistré/)).toBeNull();
+  spy.mockRestore();
+});
+
+test("quitter la page avec des modifications non enregistrées demande confirmation", async () => {
+  await open();
+  const propre = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(propre);
+  expect(propre.defaultPrevented).toBe(false);
+  await act(async () => addBlock("n1"));
+  await waitFor(() => {
+    const sale = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(sale);
+    expect(sale.defaultPrevented).toBe(true);
+  });
+});
+
+test("Annuler et Rétablir passent par l'historique de Blockly", async () => {
+  await open();
+  const user = userEvent.setup();
+  await act(async () => {
+    Blockly.Events.setGroup(true); // un geste de l'utilisateur = un groupe annulable d'un coup
+    addBlock("n1");
+    Blockly.Events.setGroup(false);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20)); // Blockly enregistre l'historique en différé
+  expect(ws().getBlockById("n1")).not.toBeNull();
+  await user.click(screen.getByRole("button", { name: "Annuler (Ctrl+Z)" }));
+  expect(ws().getBlockById("n1")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Rétablir (Ctrl+Y)" }));
+  expect(ws().getBlockById("n1")).not.toBeNull();
+});
+
+function conflictEngine(onPut: (call: Call) => Response | object) {
+  vi.unstubAllGlobals();
+  let reads = 0;
+  calls = stubEngine((call) => {
+    const { path, method } = call;
+    if (path === "/api/status") return STATUS;
+    if (path === "/api/devices") return devices;
+    if (path === "/api/programs" && method === "GET") return [];
+    if (path === "/api/programs/scene" && method === "GET") {
+      reads += 1;
+      return reads === 1 ? program([relay("a", "on")]) : { ...program([relay("z", "off")]), revision: 8, name: "Version du moteur" };
+    }
+    if (path === "/api/programs/validate") return { valid: true, issues: [] };
+    if (path === "/api/programs/scene" && method === "PUT") return onPut(call);
+  });
+}
+const precondition = () => Response.json({ detail: { message: "révision périmée", issues: [] } }, { status: 412 });
+
+test("conflit : Écraser relit la révision du moteur et réenregistre ce qui est à l'écran", async () => {
+  let attempt = 0;
+  conflictEngine(() => (++attempt === 1 ? precondition() : { program: { ...program([]), revision: 9 }, warnings: [] }));
+  await open();
+  const user = userEvent.setup();
+  await act(async () => addBlock("n1"));
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+  const dialog = await screen.findByRole("dialog", { name: "Ce scénario a été modifié ailleurs" });
+  await user.click(within(dialog).getByRole("button", { name: "Écraser" }));
+  await waitFor(() => expect(puts().length).toBe(2));
+  expect(puts()[0].headers.get("If-Match")).toBe('"3"');
+  expect(puts()[1].headers.get("If-Match")).toBe('"8"'); // la révision actuelle du moteur
+  expect(JSON.stringify(puts()[1].body)).toContain("n1"); // ce qui est à l'écran
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("conflit : Recharger abandonne l'écran au profit de la version du moteur", async () => {
+  conflictEngine(() => precondition());
+  await open();
+  const user = userEvent.setup();
+  await act(async () => addBlock("n1"));
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+  const dialog = await screen.findByRole("dialog", { name: "Ce scénario a été modifié ailleurs" });
+  await user.click(within(dialog).getByRole("button", { name: "Recharger la version du moteur" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(ws().getBlockById("n1")).toBeNull();
+  expect(ws().getBlockById("z")).not.toBeNull();
+  expect(screen.getByLabelText("Nom du scénario")).toHaveValue("Version du moteur");
+  expect(puts()).toHaveLength(1); // pas de second enregistrement
+});
+
+test("une autre erreur d'enregistrement est une notification, pas un conflit", async () => {
+  conflictEngine(() => Response.json({ detail: { message: "disque plein", issues: [] } }, { status: 500 }));
+  await open();
+  await act(async () => addBlock("n1"));
+  await userEvent.setup().click(screen.getByRole("button", { name: "Enregistrer" }));
+  expect(await screen.findByText("disque plein")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

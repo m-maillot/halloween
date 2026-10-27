@@ -626,3 +626,13 @@ a.btn {
   stroke: #ff4d4d !important;
   stroke-width: 4px !important;
 }
+
+.draft-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-warning);
+}
