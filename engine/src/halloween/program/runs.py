@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -49,6 +50,21 @@ class TooManyRuns(Exception):
     pass
 
 
+def _wall_clock(loop_time: float | None) -> float | None:
+    """Instant de la boucle asyncio (monotone) converti en heure murale (secondes depuis 1970).
+
+    Les horodatages internes restent monotones (durées exactes, temps virtuel des tests) ; l'API,
+    elle, parle en heure murale, la seule que l'interface sache comparer à `/status` (`started_at`,
+    `uptime_s`). Hors d'une boucle (appel synchrone), la valeur est rendue telle quelle.
+    """
+    if loop_time is None:
+        return None
+    try:
+        return time.time() - (asyncio.get_running_loop().time() - loop_time)
+    except RuntimeError:
+        return loop_time
+
+
 @dataclass(eq=False)
 class Run:
     id: str
@@ -69,8 +85,8 @@ class Run:
             "state": self.state,
             "outcome": self.outcome,
             "error": self.error,
-            "started_at": self.started_at,
-            "ended_at": self.ended_at,
+            "started_at": _wall_clock(self.started_at),
+            "ended_at": _wall_clock(self.ended_at),
         }
 
 

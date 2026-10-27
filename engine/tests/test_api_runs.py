@@ -72,6 +72,20 @@ def test_start_list_and_status(client, pi):
     ] is True
 
 
+def test_run_timestamps_are_wall_clock_like_status(client, pi):
+    """`started_at` d'un run est une heure murale, comme `started_at` de `/status`."""
+    save(client, program("scene", relay("a", "fantome"), wait("w", 600)))
+    client.post("/api/runs", json={"program_id": "scene"})
+    assert eventually(lambda: pi.relays.is_on("fantome"))
+    status = client.get("/api/status").json()
+    run = status["runs"][0]
+    now = time.time()
+    assert abs(run["started_at"] - now) < 10  # et non un compteur monotone
+    assert status["started_at"] <= run["started_at"] <= now + 1  # après le démarrage
+    assert run["ended_at"] is None
+    client.post("/api/runs/stop")
+
+
 def test_several_programs_run_together_and_stop_individually_or_globally(client, pi):
     save(client, program("ambiance", relay("a", "orage"), wait("w", 600)))
     save(client, program("scene", relay("b", "fantome"), wait("w", 600)))

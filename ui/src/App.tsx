@@ -54,9 +54,10 @@ export function App({ WebSocketImpl }: { WebSocketImpl?: typeof WebSocket }) {
       <CatalogProvider>
       <BrowserRouter>
         <Routes>
+          {/* Hors mise en page : le mode spectacle n'a ni menu ni lien vers la configuration. */}
+          <Route path="spectacle" element={<Spectacle />} />
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
-            <Route path="spectacle" element={<Spectacle />} />
             <Route path="scenarios/*" element={<Scenarios />} />
             <Route path="declencheurs" element={<Triggers />} />
             <Route path="composants/*" element={<Components />} />
