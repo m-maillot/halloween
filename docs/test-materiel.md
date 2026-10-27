@@ -176,3 +176,15 @@ Si quelque chose ne correspond pas, copier-coller :
 | Un relais clique à chaque mise sous tension du Pi | broche flottante avant le démarrage du logiciel (module actif-bas) : limite matérielle, voir §2 |
 | Plusieurs événements pour un seul appui | augmenter `debounce_ms` du bouton |
 | Rien ne se passe sans erreur | vérifier le dossier de données (`--data-dir` / `HALLOWEEN_DATA_DIR`) |
+
+## 10. Service systemd et reprise (lot 6)
+
+Prérequis : §1 à §9 validés, jeton Home Assistant renseigné si besoin.
+
+1. `sudo deploy/install.sh`, puis `systemctl status halloween-engine` : `active (running)`, et `journalctl -u halloween-engine -n 20` affiche « Moteur prêt ».
+2. Ouvrir `http://<ip-du-pi>:8080/api/health` (réponse `{"ok":true}`) ; `curl -H "Authorization: Bearer $(sudo cat /var/lib/halloween/api-token)" http://<ip-du-pi>:8080/api/status`.
+3. **Plantage** : lancer un scénario qui allume des relais, puis `sudo systemctl kill -s SIGKILL halloween-engine`. Attendu : service relancé en quelques secondes, **tous les relais éteints** (écouter les clics), scénario non repris.
+4. **Gel** : lancer un scénario, puis `sudo systemctl kill -s SIGSTOP halloween-engine` (gèle le processus). Attendu : après 20 s `journalctl -u halloween-engine` indique « Watchdog timeout » ; un processus gelé par SIGSTOP ne traite pas le SIGABRT de `systemd`, qui l'achève en SIGKILL après `TimeoutAbortSec` (15 s) : relance au plus tard ~35 s après le gel, relais éteints.
+5. **Redémarrage du Pi** (`sudo reboot`) : le service démarre seul, relais éteints, bouton actif ; le planning reprend selon la règle de rattrapage.
+6. **Arrêt propre** : `sudo systemctl stop halloween-engine` pendant un scénario : relais éteints immédiatement, aucune erreur dans le journal.
+

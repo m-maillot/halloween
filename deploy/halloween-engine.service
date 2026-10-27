@@ -1,0 +1,45 @@
+[Unit]
+Description=Déco Halloween - moteur (relais, Home Assistant, API)
+Documentation=https://github.com/m-maillot/halloween
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# `notify` : le service annonce lui-même qu'il est prêt, puis envoie un signal de vie.
+Type=notify
+NotifyAccess=main
+User=halloween
+Group=halloween
+# gpio : accès à /dev/gpiochip* (relais et bouton).
+SupplementaryGroups=gpio
+# /var/lib/halloween : configuration, programmes, images, code de verrouillage.
+StateDirectory=halloween
+StateDirectoryMode=0750
+Environment=HALLOWEEN_DATA_DIR=/var/lib/halloween
+# Surcharges facultatives (HALLOWEEN_UI_DIR, HALLOWEEN_API_TOKEN, HALLOWEEN_HA_TOKEN...).
+EnvironmentFile=-/etc/halloween/halloween.env
+ExecStart=/opt/halloween/venv/bin/halloween-cli api --host 0.0.0.0 --port 8080
+
+# Reprise après plantage ou gel : relancé quoi qu'il arrive ; le moteur éteint tous les relais
+# au démarrage. Sans signal de vie pendant WatchdogSec (boucle gelée), systemd tue le processus
+# (SIGABRT, avec trace) puis le relance.
+Restart=always
+RestartSec=2
+WatchdogSec=20
+# Arrêt propre : SIGTERM éteint les relais ; au-delà de ce délai, SIGKILL.
+TimeoutStopSec=15
+# Le moteur sort avec 130 quand il s'arrête sur SIGTERM : c'est un arrêt normal, pas un échec.
+SuccessExitStatus=130
+
+# Durcissement (le service n'a besoin que du réseau, de /dev/gpiochip* et de son dossier).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 
 Unité `systemd`, script d'installation sur le Raspberry Pi et configuration d'exemple.
 
-Voir la spec : [docs/spec-1-moteur.md](../docs/spec-1-moteur.md) (§3, §6.3). Le contenu est ajouté aux lots 0 et 6.
+Voir la spec : [docs/spec-1-moteur.md](../docs/spec-1-moteur.md) (§3, §6.3).
 
 ## Configuration d'exemple
 
@@ -21,3 +21,32 @@ Les relais sont actifs à l'état haut (`active_low: false`, `high()` active le 
 ## Programme d'exemple et test sur le Pi
 
 [`programs-example/scenario-principal.json`](programs-example/scenario-principal.json) est un scénario complet utilisant les composants de la configuration d'exemple (copié dans `programs/` du dossier de données). La procédure pas à pas pour valider le matériel est dans [docs/test-materiel.md](../docs/test-materiel.md).
+
+## Installer le service sur le Pi
+
+```bash
+git clone https://github.com/m-maillot/halloween.git && cd halloween
+sudo deploy/install.sh            # ou --dry-run pour voir ce qui serait fait
+```
+
+Le script (relançable sans risque, il ne touche ni la configuration ni les données existantes) :
+
+| Étape | Résultat |
+|---|---|
+| Compte système `halloween` | membre du groupe `gpio` (accès aux relais et au bouton), sans shell |
+| Python | `venv` dans `/opt/halloween/venv`, moteur installé avec l'extra `pi` (gpiozero, lgpio) |
+| Données | `/var/lib/halloween` (config, programmes, images, code de verrouillage, `api-token`), config d'exemple copiée si absente |
+| Surcharges | `/etc/halloween/halloween.env` (`HALLOWEEN_UI_DIR`, `HALLOWEEN_HA_TOKEN`…), vide par défaut |
+| Service | [`halloween-engine.service`](halloween-engine.service) activé au démarrage et lancé |
+
+Le jeton d'API se lit avec `sudo cat /var/lib/halloween/api-token`. Mettre à jour : `git pull && sudo deploy/install.sh`. Retirer : `sudo deploy/install.sh --uninstall` (les données sont conservées).
+
+### Reprise après incident
+
+| Incident | Réaction |
+|---|---|
+| Plantage du processus | `Restart=always` : relancé en 2 s ; tous les relais sont éteints au démarrage, avant toute autre action |
+| Gel de la boucle d'exécution | le moteur envoie un signal de vie à `systemd` toutes les `WatchdogSec / 2` (10 s) ; sans signal pendant `WatchdogSec` (20 s), `systemd` tue le processus puis le relance |
+| Arrêt (`systemctl stop`, extinction) | SIGTERM : scénarios arrêtés, relais éteints, broches libérées (15 s au plus avant SIGKILL) |
+
+Pas de watchdog matériel du Pi (voir la spec). Pendant les quelques secondes d'un gel, les relais gardent leur dernier état : le STOP du bouton physique ne fonctionne pas non plus tant que le moteur est gelé.
