@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { api } from "./api/client";
 import { currentToken, onTokenChange, setToken } from "./api/token";
 import type { components } from "./api/schema";
+import { Styleguide } from "./Styleguide";
 
 type Status = components["schemas"]["Status"];
 
@@ -59,5 +60,6 @@ function StatusView() {
 
 export function App() {
   const token = useToken();
+  if (location.hash === "#styleguide") return <Styleguide />;
   return token ? <StatusView /> : <TokenForm />;
 }

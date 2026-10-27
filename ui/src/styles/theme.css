@@ -1,0 +1,81 @@
+/* Jetons de couleur, typographie et espacement d'après les maquettes (fond violet-noir, accent orange). */
+:root {
+  color-scheme: dark;
+
+  --color-bg: #120e18;
+  --color-bg-bar: #15101b;
+  --color-sidebar: #17111e;
+  --color-surface: #1b1523;
+  --color-surface-2: #1d1626;
+  --color-surface-active: #2a1f36;
+  --color-border: #2b2236;
+  --color-border-strong: #4a3a5e;
+  --color-field-border: #6d5a85;
+  --color-text: #f1eaf7;
+  --color-text-muted: #b3a6c4;
+
+  --color-accent: #ff8a2b;
+  --color-accent-text: #ffb26b;
+  --color-on-accent: #1a0f05;
+  --color-danger: #d12b2b;
+  --color-on-danger: #ffffff;
+  --color-danger-text: #ff9a9a;
+  --color-danger-border: #ff6b6b;
+  --color-success: #7ee08a;
+  --color-warning: #e0a017;
+  --color-focus: #ffd0a3;
+
+  --font-display: "Fraunces Variable", Georgia, serif;
+  --font-body: "Inter Variable", system-ui, sans-serif;
+
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* Cible tactile minimale (spec 2 §6) ; 64 px en mode spectacle. */
+  --target: 44px;
+  --target-large: 64px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 22px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
