@@ -9,8 +9,9 @@ const auth: Middleware = {
     return request;
   },
   onResponse({ response }) {
-    // Jeton refusé : on l'oublie, l'écran de saisie réapparaît.
-    if (response.status === 401) setToken(null);
+    // Jeton refusé : on l'oublie, l'écran de saisie réapparaît. Un 401 « code incorrect » (lancement,
+    // déverrouillage) n'est pas un jeton refusé : seul le refus du jeton porte `WWW-Authenticate`.
+    if (response.status === 401 && response.headers.has("WWW-Authenticate")) setToken(null);
     return response;
   },
 };
