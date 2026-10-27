@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { ApiError, formErrors, type FormErrors } from "../api/errors";
 import { Button, CheckField, Field, Modal, SelectField } from "../components/ui";
 import { useToasts } from "../components/Toasts";
+import { useEngine } from "../engine/EngineProvider";
 import { useCatalog } from "./CatalogProvider";
 import { bodyOf, draftOf, usedPins, type Draft, type Existing } from "./draft";
 import { ImagePicker } from "./ImagePicker";
@@ -67,6 +68,7 @@ export function ComponentForm({
 }) {
   const { devices, reload } = useCatalog();
   const toasts = useToasts();
+  const locked = useEngine().status?.lock.locked ?? false;
   const [draft, setDraft] = useState<Draft>(() => draftOf(existing));
   const [errors, setErrors] = useState<FormErrors>({ fields: {} });
   const [busy, setBusy] = useState(false);
@@ -154,6 +156,7 @@ export function ComponentForm({
           void save();
         }}
       >
+        {locked && <p className="muted">Interface verrouillée : lecture seule.</p>}
         {existing && (
           <Field label="Identifiant technique" value={existing.id} readOnly hint="Utilisé dans les scénarios ; ne change pas." />
         )}
@@ -345,7 +348,7 @@ export function ComponentForm({
           {existing &&
             (confirmDelete ? (
               <>
-                <Button variant="danger" disabled={busy} onClick={() => void remove()}>
+                <Button variant="danger" disabled={busy || locked} onClick={() => void remove()}>
                   Confirmer la suppression
                 </Button>
                 <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
@@ -353,7 +356,7 @@ export function ComponentForm({
                 </Button>
               </>
             ) : (
-              <Button variant="outline-danger" disabled={busy} onClick={() => setConfirmDelete(true)}>
+              <Button variant="outline-danger" disabled={busy || locked} onClick={() => setConfirmDelete(true)}>
                 Supprimer
               </Button>
             ))}
@@ -361,7 +364,7 @@ export function ComponentForm({
           <Button variant="ghost" onClick={onClose}>
             Annuler
           </Button>
-          <Button variant="primary" type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy || locked}>
             Enregistrer
           </Button>
         </div>

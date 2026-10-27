@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Lock, LockOpen, Square } from "lucide-react";
 import { api } from "../api/client";
-import { unwrap } from "../api/errors";
+import { ApiError, unwrap } from "../api/errors";
 import { useToasts } from "../components/Toasts";
 import { Button, Pill, type Tone } from "../components/ui";
+import { CodePrompt } from "../dashboard/CodePrompt";
 import { useEngine, type Status } from "../engine/EngineProvider";
 
 function haPill(status: Status | null): { tone: Tone; text: string } {
@@ -53,6 +54,8 @@ function RunsPanel({ onClose }: { onClose: () => void }) {
 export function Banner() {
   const { status, connection, refresh } = useEngine();
   const [panel, setPanel] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+  const [wait, setWait] = useState(0);
   const toasts = useToasts();
   const online = connection === "online";
   const ha = haPill(status);
@@ -83,10 +86,35 @@ export function Banner() {
         </span>
       </div>
       <div className="banner__actions">
-        <Pill tone={locked ? "warn" : "neutral"}>
+        <button
+          type="button"
+          className="pill pill--emphasis"
+          disabled={!online}
+          aria-label={locked ? "Verrouillé : saisir le code pour déverrouiller" : "Déverrouillé : verrouiller l'interface"}
+          onClick={async () => {
+            if (locked) {
+              // Le délai imposé après trop d'essais n'est pas annoncé par un événement : on le relit à l'ouverture.
+              const fresh = await unwrap<{ retry_after_s?: number | null }>(api.GET("/api/lock")).catch(() => null);
+              setWait(fresh?.retry_after_s ?? 0);
+              setUnlocking(true);
+              return;
+            }
+            try {
+              await unwrap(api.POST("/api/lock")); // verrouiller ne demande pas le code
+            } catch (error) {
+              // 409 : aucun code défini (c'est le moteur qui sait, l'état affiché peut dater de quelques secondes)
+              if (error instanceof ApiError && error.status === 409) {
+                toasts.info("Définissez d'abord un code dans Réglages, section « Code de verrouillage ».");
+              } else {
+                toasts.error(error);
+              }
+            }
+            await refresh();
+          }}
+        >
           {locked ? <Lock size={16} aria-hidden="true" /> : <LockOpen size={16} aria-hidden="true" />}
           {locked ? "Verrouillé" : "Déverrouillé"}
-        </Pill>
+        </button>
         {/* STOP n'est jamais soumis au code ni désactivé par le verrou (spec 1 §6.4). */}
         <Button
           variant="danger"
@@ -105,6 +133,17 @@ export function Banner() {
           STOP
         </Button>
       </div>
+      {unlocking && (
+        <CodePrompt
+          title="Déverrouiller l'interface"
+          initialWait={wait}
+          onSubmit={async (code) => {
+            await unwrap(api.POST("/api/unlock", { body: { code } }));
+            await refresh();
+          }}
+          onClose={() => setUnlocking(false)}
+        />
+      )}
     </header>
   );
 }

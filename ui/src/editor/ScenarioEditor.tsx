@@ -225,7 +225,7 @@ export function ScenarioEditor() {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (!busy && !blocking && !running && program) void save();
+        if (!busy && !blocking && !running && !locked && program) void save();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -285,8 +285,8 @@ export function ScenarioEditor() {
         )}
         <Button
           variant="primary"
-          disabled={busy || !program || blocking || running}
-          title={blocking ? "Corrigez les erreurs avant d'enregistrer" : undefined}
+          disabled={busy || !program || blocking || running || locked}
+          title={locked ? "Interface verrouillée : lecture seule" : blocking ? "Corrigez les erreurs avant d'enregistrer" : undefined}
           onClick={() => void save()}
         >
           Enregistrer
@@ -309,7 +309,7 @@ export function ScenarioEditor() {
         <BlocklyEditor
           devices={devices}
           onReady={ready}
-          readOnly={running}
+          readOnly={running || locked}
           onChange={() => {
             setDirty(true);
             schedule();
