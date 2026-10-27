@@ -22,6 +22,8 @@ Les relais sont actifs à l'état haut (`active_low: false`, `high()` active le 
 
 [`programs-example/scenario-principal.json`](programs-example/scenario-principal.json) est un scénario complet utilisant les composants de la configuration d'exemple (copié dans `programs/` du dossier de données). La procédure pas à pas pour valider le matériel est dans [docs/test-materiel.md](../docs/test-materiel.md).
 
+Installation complète pas à pas (interface comprise), sauvegarde et dépannage : [docs/exploitation.md](../docs/exploitation.md).
+
 ## Installer le service sur le Pi
 
 ```bash
@@ -37,6 +39,7 @@ Le script (relançable sans risque, il ne touche ni la configuration ni les donn
 | Python | `venv` dans `/opt/halloween/venv`, moteur installé avec l'extra `pi` (gpiozero, lgpio) |
 | Données | `/var/lib/halloween` (config, programmes, images, code de verrouillage, `api-token`), config d'exemple copiée si absente |
 | Surcharges | `/etc/halloween/halloween.env` (`HALLOWEEN_UI_DIR`, `HALLOWEEN_HA_TOKEN`…), vide par défaut |
+| Interface | `ui/dist` (construite sur un ordinateur : `cd ui && npm run build`) copiée dans `/opt/halloween/ui`, servie par le moteur sur le même port |
 | Service | [`halloween-engine.service`](halloween-engine.service) activé au démarrage et lancé |
 
 Le jeton d'API se lit avec `sudo cat /var/lib/halloween/api-token`. Mettre à jour : `git pull && sudo deploy/install.sh`. Retirer : `sudo deploy/install.sh --uninstall` (les données sont conservées).
@@ -56,3 +59,7 @@ Pas de watchdog matériel du Pi (voir la spec). Pendant les quelques secondes d'
 - Journal complet : `/var/lib/halloween/logs/halloween.log` (JSON lines, rotation 2 Mo × 5 archives). En direct : `tail -f /var/lib/halloween/logs/halloween.log`, ou `journalctl -u halloween-engine` (erreurs seulement).
 - Un run précis : `grep '"run_id": "<id>"' /var/lib/halloween/logs/halloween.log*`.
 - Diagnostic rapide, sans shell : `GET /api/status` (relais, Home Assistant, verrouillage, derniers problèmes).
+
+### Sauvegarde
+
+`deploy/backup.sh` sauvegarde le dossier de données (hors journaux) en une archive privée (droits 600, elle contient des jetons) ; `sudo deploy/backup.sh --restore FICHIER` la restaure en gardant l'état précédent à côté. Détails : [docs/exploitation.md](../docs/exploitation.md#3-sauvegarder-et-restaurer).

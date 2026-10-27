@@ -252,6 +252,7 @@ test("À propos : version, origine des icônes et logiciels tiers sont affichés
   expect(feather).toHaveTextContent("Cole Bemis");
   expect(project).toHaveTextContent("citrouille");
   const software = within(about).getByRole("list", { name: "Logiciels embarqués" });
+  expect(within(about).getByRole("link", { name: "LICENSES.txt" })).toHaveAttribute("href", "/LICENSES.txt");
   const credit = (name: RegExp) => within(software).getAllByRole("listitem").find((li) => name.test(li.textContent ?? ""))!;
   expect(credit(/^Blockly/)).toHaveTextContent("Apache-2.0");
   expect(credit(/^Fraunces/)).toHaveTextContent("SIL OFL 1.1");

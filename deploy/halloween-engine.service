@@ -16,6 +16,8 @@ SupplementaryGroups=gpio
 StateDirectory=halloween
 StateDirectoryMode=0750
 Environment=HALLOWEEN_DATA_DIR=/var/lib/halloween
+# Interface web (build statique) servie par le moteur sur le même port que l'API.
+Environment=HALLOWEEN_UI_DIR=/opt/halloween/ui
 # Surcharges facultatives (HALLOWEEN_UI_DIR, HALLOWEEN_API_TOKEN, HALLOWEEN_HA_TOKEN...).
 EnvironmentFile=-/etc/halloween/halloween.env
 ExecStart=/opt/halloween/venv/bin/halloween-cli api --host 0.0.0.0 --port 8080

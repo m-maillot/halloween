@@ -27,6 +27,10 @@ export function AboutSection() {
         })}
       </ul>
 
+      <p>
+        Textes complets des licences : <a href="/LICENSES.txt" target="_blank" rel="noreferrer">LICENSES.txt</a> (livré avec l'interface).
+      </p>
+
       <h3>Logiciels</h3>
       <ul className="credits" aria-label="Logiciels embarqués">
         {SOFTWARE.map((credit) => (

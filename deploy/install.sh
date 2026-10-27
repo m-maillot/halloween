@@ -7,7 +7,8 @@
 #
 # Relançable sans risque : ni la configuration ni les données existantes ne sont écrasées.
 # Variables : OPT_DIR (/opt/halloween), DATA_DIR (/var/lib/halloween), ETC_DIR (/etc/halloween),
-# UNIT_DIR (/etc/systemd/system), SERVICE_USER (halloween), PYTHON (python3).
+# UNIT_DIR (/etc/systemd/system), SERVICE_USER (halloween), PYTHON (python3),
+# UI_DIST (dossier de l'interface construite, ui/dist par défaut).
 set -euo pipefail
 
 OPT_DIR="${OPT_DIR:-/opt/halloween}"
@@ -74,6 +75,20 @@ fi
 run "$OPT_DIR/venv/bin/pip" install --quiet --upgrade pip
 run "$OPT_DIR/venv/bin/pip" install --quiet --upgrade "$REPO/engine[pi]"
 
+step "Interface web dans $OPT_DIR/ui"
+UI_DIST="${UI_DIST:-$REPO/ui/dist}"
+if [ -f "$UI_DIST/index.html" ] || [ "$DRY_RUN" -eq 1 ]; then
+  # Copie à côté puis échange : le service ne voit jamais une interface à moitié copiée.
+  run rm -rf "$OPT_DIR/ui.new"
+  run cp -r "$UI_DIST" "$OPT_DIR/ui.new"
+  run rm -rf "$OPT_DIR/ui"
+  run mv "$OPT_DIR/ui.new" "$OPT_DIR/ui"
+else
+  echo "Attention : l'interface n'est pas construite ($UI_DIST/index.html absent) : le moteur répondra" >&2
+  echo "par une page d'attente. Sur un ordinateur : make ui-install && cd ui && npm run build, puis" >&2
+  echo "copier ui/dist dans ce dépôt (ou UI_DIST=... sudo deploy/install.sh). Voir docs/exploitation.md." >&2
+fi
+
 step "Configuration dans $ETC_DIR et données dans $DATA_DIR"
 run install -d -m 0750 -o root -g "$SERVICE_USER" "$ETC_DIR"
 if [ ! -e "$ETC_DIR/halloween.env" ]; then
@@ -81,7 +96,7 @@ if [ ! -e "$ETC_DIR/halloween.env" ]; then
   if [ "$DRY_RUN" -eq 0 ]; then
     cat > "$ETC_DIR/halloween.env" <<'ENV'
 # Surcharges facultatives du service halloween-engine.
-# HALLOWEEN_UI_DIR=/opt/halloween/ui
+# (HALLOWEEN_UI_DIR vaut /opt/halloween/ui par défaut, voir l'unité.)
 # HALLOWEEN_API_TOKEN=
 # HALLOWEEN_HA_TOKEN=
 ENV
