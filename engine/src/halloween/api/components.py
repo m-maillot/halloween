@@ -209,6 +209,8 @@ def _register(kind: str) -> None:
         kind
     ]
     path = f"/components/{kind}"
+    # Nom propre dans l'OpenAPI (`RelayResult` plutôt que `Result_RelayOut_`).
+    result_class = type(f"{singular.capitalize()}Result", (Result[out_class],), {})
 
     def find(engine: Engine, component_id: str):
         for item in getattr(engine.config, kind):
@@ -221,7 +223,7 @@ def _register(kind: str) -> None:
         return [to_out(kind, c) for c in getattr(engine.config, kind)]
 
     @router.post(
-        path, response_model=Result[out_class], status_code=201, operation_id=f"create_{singular}"
+        path, response_model=result_class, status_code=201, operation_id=f"create_{singular}"
     )
     async def create_component(body: model_in, engine: EngineDep, stop_runs: StopRuns = False):
         async with engine.config_lock:
@@ -233,7 +235,7 @@ def _register(kind: str) -> None:
             check_image(engine, component)
             new = config.model_copy(update={kind: [*getattr(config, kind), component]})
             issues = await commit(engine, new, stop_runs)
-        return Result[out_class](
+        return result_class(
             component=to_out(kind, component),
             issues=[schemas.IssueOut.from_issue(i) for i in issues],
         )
@@ -246,7 +248,7 @@ def _register(kind: str) -> None:
 
     @router.put(
         f"{path}/{{component_id}}",
-        response_model=Result[out_class],
+        response_model=result_class,
         operation_id=f"update_{singular}",
     )
     async def update_component(
@@ -261,7 +263,7 @@ def _register(kind: str) -> None:
             config = engine.config
             items = [component if c.id == component_id else c for c in getattr(config, kind)]
             issues = await commit(engine, config.model_copy(update={kind: items}), stop_runs)
-        return Result[out_class](
+        return result_class(
             component=to_out(kind, component),
             issues=[schemas.IssueOut.from_issue(i) for i in issues],
         )

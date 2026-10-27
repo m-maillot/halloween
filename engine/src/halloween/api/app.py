@@ -137,11 +137,15 @@ def create_app(
 
             tasks = [asyncio.ensure_future(forward()), asyncio.ensure_future(watch_client())]
             try:
-                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    if not task.cancelled():
+                        task.exception()  # lu : une déconnexion normale n'est pas une erreur
+            except asyncio.CancelledError:
+                pass  # annulée de l'extérieur (arrêt du service) : on sort proprement et vite
             finally:
                 for task in tasks:
-                    task.cancel()
-                await asyncio.gather(*tasks, return_exceptions=True)
+                    task.cancel()  # elles se terminent d'elles-mêmes, inutile de les attendre
         except WebSocketDisconnect:
             pass
         finally:
@@ -158,4 +162,13 @@ def create_app(
                 raise HTTPException(404, "route d'API inconnue")
             return placeholder_response()
 
+    def contract() -> dict:
+        """Contrat enrichi (événements WebSocket, sécurité), aussi servi sur /openapi.json."""
+        from halloween.api.openapi import build_openapi
+
+        if not hasattr(app.state, "contract"):
+            app.state.contract = build_openapi(app)
+        return app.state.contract
+
+    app.openapi = contract  # type: ignore[method-assign]
     return app

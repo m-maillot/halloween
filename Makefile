@@ -1,4 +1,4 @@
-.PHONY: test lint format check
+.PHONY: test lint format check openapi
 
 test:  ## Lance les tests du moteur
 	cd engine && uv run pytest
@@ -10,3 +10,6 @@ format:  ## Formate le code
 	cd engine && uv run ruff check --fix . && uv run ruff format .
 
 check: lint test  ## Lint + tests
+
+openapi:  ## Régénère le contrat OpenAPI versionné (docs/openapi.json)
+	cd engine && uv run python -m halloween.api.openapi --output ../docs/openapi.json
