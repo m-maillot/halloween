@@ -13,8 +13,11 @@ const devices = {
     { id: "flash", name: "Flash", pin: 6, mode: "push", pulse_ms: 100, active_low: false },
   ],
   buttons: [],
-  lights: [],
-  switches: [],
+  lights: [
+    { id: "bandeau", name: "Bandeau", entity_id: "light.b", supports_color: true, supports_brightness: true, supports_transition: true },
+    { id: "guirlande", name: "Guirlande", entity_id: "light.g", supports_color: false, supports_brightness: true, supports_transition: false },
+  ],
+  switches: [{ id: "prise", name: "Prise", entity_id: "switch.p" }],
   rest_state: {},
 } as unknown as Devices;
 
@@ -114,4 +117,82 @@ test("un composant inconnu garde son bloc (marqué introuvable) et son identifia
 test("les paramètres du programme sont conservés", () => {
   const back = workspaceToProgram(ws, { id: "x", name: "Un nom", max_duration_s: 90, on_end: "keep", show: true, show_order: 2, revision: 5 });
   expect(back).toMatchObject({ id: "x", name: "Un nom", max_duration_s: 90, on_end: "keep", show: true, show_order: 2, revision: 5 });
+});
+
+// ------------------------------------------------------------------ lumières, interrupteurs, options
+
+/** Le moteur renvoie les valeurs par défaut explicitement ; l'éditeur ne les écrit pas. */
+function withoutDefaults(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutDefaults);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([k, v]) => !((k === "fire_and_forget" && v === false) || (k === "on_error" && v === "continue") || (k === "wait_for_end" && v === false) || ((k === "action" || k === "rgb_color" || k === "brightness" || k === "transition") && v === null)))
+        .map(([k, v]) => [k, withoutDefaults(v)]),
+    );
+  }
+  return value;
+}
+
+const roundTrip = (children: object[]) => {
+  const source = program(children);
+  loadProgram(ws, source);
+  return { source, back: workspaceToProgram(ws, meta) };
+};
+
+test("une lumière avec couleur, luminosité et transition fait l'aller-retour", () => {
+  const { source, back } = roundTrip([{ id: "l1", type: "light", target: "bandeau", state: "on", rgb_color: [255, 0, 0], brightness: 102, transition: 2.5 }]);
+  expect(back.scripts).toEqual(source.scripts);
+});
+
+test("les paramètres non cochés ne sont pas envoyés", () => {
+  const { back } = roundTrip([{ id: "l1", type: "light", target: "bandeau", state: "off" }]);
+  expect(back.scripts[0].root).toMatchObject({ children: [{ id: "l1", type: "light", target: "bandeau", state: "off" }] });
+  const node = (back.scripts[0].root as unknown as { children: object[] }).children[0];
+  expect(Object.keys(node).sort()).toEqual(["id", "state", "target", "type"]);
+});
+
+test("la luminosité 0-255 du moteur survit à l'affichage en pourcentage, pour toutes les valeurs", () => {
+  for (let value = 0; value <= 255; value++) {
+    const { back } = roundTrip([{ id: "l1", type: "light", target: "bandeau", state: "on", brightness: value }]);
+    const node = (back.scripts[0].root as unknown as { children: { brightness: number }[] }).children[0];
+    expect(node.brightness).toBe(value);
+  }
+});
+
+test("un interrupteur et les options fire_and_forget / on_error font l'aller-retour", () => {
+  const { source, back } = roundTrip([
+    { id: "a", type: "switch", target: "prise", state: "on", fire_and_forget: true },
+    { id: "b", type: "relay", target: "orage", state: "on", on_error: "abort" },
+    { id: "c", type: "light", target: "bandeau", state: "on", fire_and_forget: true, on_error: "abort" },
+  ]);
+  expect(back.scripts).toEqual(source.scripts);
+});
+
+test("les valeurs par défaut renvoyées par le moteur sont comprises, puis non réécrites", () => {
+  const { source, back } = roundTrip([
+    { id: "a", type: "relay", target: "orage", state: "on", action: null, fire_and_forget: false, on_error: "continue", wait_for_end: false },
+    { id: "l", type: "light", target: "bandeau", state: "on", rgb_color: null, brightness: null, transition: null, fire_and_forget: false, on_error: "continue" },
+  ]);
+  expect(back.scripts).toEqual(withoutDefaults(source.scripts));
+});
+
+test("un paramètre que la lumière ne gère pas est conservé (la validation le signalera sur ce bloc)", () => {
+  const { source, back } = roundTrip([{ id: "g", type: "light", target: "guirlande", state: "on", rgb_color: [1, 2, 3], transition: 4 }]);
+  expect(back.scripts).toEqual(source.scripts);
+});
+
+test("une lumière inconnue garde ses paramètres", () => {
+  const { source, back } = roundTrip([{ id: "x", type: "light", target: "disparue", state: "on", brightness: 50 }]);
+  expect(back.scripts).toEqual(source.scripts);
+  expect(ws.getBlockById("x")!.getColour()).toBe("#a02626"); // rouge : composant introuvable
+});
+
+test("le catalogue modifié met les blocs à jour (relais devenu impulsion)", async () => {
+  const { refreshComponentBlocks } = await import("./blocks");
+  loadProgram(ws, program([relay("n2", "orage", "on")]));
+  expect(ws.getBlockById("n2")!.getField("STATE")).not.toBeNull();
+  setCatalog({ ...devices, relays: [{ id: "orage", name: "Orage", pin: 22, mode: "push", pulse_ms: 100, active_low: false }] } as unknown as Devices);
+  refreshComponentBlocks(ws);
+  expect(ws.getBlockById("n2")!.getField("STATE")).toBeNull();
 });

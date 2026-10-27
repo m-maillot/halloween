@@ -26,19 +26,46 @@ export function containerId(owner: string, slot: string): string {
 
 // ---------------------------------------------------------------- blocs -> JSON
 
+const checked = (block: Blockly.Block, name: string) => block.getFieldValue(name) === "TRUE";
+const targetOf = (block: Blockly.Block) => (block as unknown as { target_: string }).target_;
+
+/** `fire_and_forget` et `on_error` : écrits seulement quand ils ne sont pas à leur valeur par défaut. */
+function withOptions(block: Blockly.Block, node: Node): Node {
+  if (checked(block, "FF")) node.fire_and_forget = true;
+  if (block.getFieldValue("ONERR") === "abort") node.on_error = "abort";
+  return node;
+}
+
+const toPercent = (value255: number) => Math.round((value255 / 255) * 10000) / 100;
+const toByte = (percent: number) => Math.round((percent * 255) / 100);
+const hexOf = ([r, g, b]: number[]) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+const rgbOf = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
 function leaf(block: Blockly.Block): Node {
   const id = nodeId(block);
   switch (block.type) {
     case "hw_relay": {
-      const target = (block as unknown as { target_: string }).target_;
-      if (block.getField("WAIT_END") !== null || !block.getField("STATE")) {
-        // impulsion
-        const node: Node = { id, type: "relay", target, action: "trigger" };
-        if (block.getFieldValue("WAIT_END") === "TRUE") node.wait_for_end = true;
-        return node;
+      const target = targetOf(block);
+      if (!block.getField("STATE")) {
+        const node: Node = { id, type: "relay", target, action: "trigger" }; // impulsion
+        if (checked(block, "WAIT_END")) node.wait_for_end = true;
+        return withOptions(block, node);
       }
-      return { id, type: "relay", target, state: block.getFieldValue("STATE") };
+      return withOptions(block, { id, type: "relay", target, state: block.getFieldValue("STATE") });
     }
+    case "hw_light": {
+      const node: Node = { id, type: "light", target: targetOf(block), state: block.getFieldValue("STATE") };
+      // Les paramètres ne sont envoyés que cochés : « non coché = pas envoyé » (spec §5.3).
+      if (checked(block, "USE_COLOR")) node.rgb_color = rgbOf(block.getFieldValue("COLOR"));
+      if (checked(block, "USE_BRIGHT")) node.brightness = toByte(block.getFieldValue("BRIGHT"));
+      if (checked(block, "USE_TRANS")) node.transition = Number(block.getFieldValue("TRANS"));
+      return withOptions(block, node);
+    }
+    case "hw_switch":
+      return withOptions(block, { id, type: "switch", target: targetOf(block), state: block.getFieldValue("STATE") });
     default:
       throw new Error(`bloc inconnu : ${block.type}`);
   }
@@ -127,12 +154,33 @@ function attach(workspace: Blockly.Workspace, node: Node, previous: Blockly.Bloc
 
 function nodeToBlock(workspace: Blockly.Workspace, node: Node): Blockly.Block {
   switch (node.type) {
-    case "relay": {
-      const block = create(workspace, "hw_relay", node.id, { target: node.target });
-      if (node.action === "trigger") {
-        if (node.wait_for_end) block.setFieldValue("TRUE", "WAIT_END");
+    case "relay":
+    case "light":
+    case "switch": {
+      const block = create(workspace, `hw_${node.type}`, node.id, { target: node.target });
+      // Un champ absent (paramètre qu'un composant ne porte pas) est ignoré sans lever d'erreur : la
+      // validation du moteur, pas le chargement, dit ce qui ne va pas.
+      const set = (name: string, value: string) => block.getField(name) && block.setFieldValue(value, name);
+      if (node.type === "relay" && node.action === "trigger") {
+        if (node.wait_for_end) set("WAIT_END", "TRUE");
       } else if (node.state) {
-        block.setFieldValue(node.state as string, "STATE");
+        set("STATE", node.state as string);
+      }
+      if (node.fire_and_forget) set("FF", "TRUE");
+      if (node.on_error === "abort") set("ONERR", "abort");
+      if (node.type === "light") {
+        if (node.rgb_color) {
+          set("USE_COLOR", "TRUE");
+          set("COLOR", hexOf(node.rgb_color as number[]));
+        }
+        if (node.brightness != null) {
+          set("USE_BRIGHT", "TRUE");
+          set("BRIGHT", String(toPercent(node.brightness as number)));
+        }
+        if (node.transition != null) {
+          set("USE_TRANS", "TRUE");
+          set("TRANS", String(node.transition));
+        }
       }
       return block;
     }
