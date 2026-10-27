@@ -7,7 +7,7 @@ import { Button, Pill, type Tone } from "../components/ui";
 import { CodePrompt } from "../dashboard/CodePrompt";
 import { useEngine, type Status } from "../engine/EngineProvider";
 
-function haPill(status: Status | null): { tone: Tone; text: string } {
+export function haPill(status: Status | null): { tone: Tone; text: string } {
   if (!status) return { tone: "neutral", text: "Home Assistant : inconnu" };
   const ha = status.home_assistant;
   if (ha.mode === "dry-run") return { tone: "warn", text: "Home Assistant simulé" };

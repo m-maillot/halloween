@@ -1,0 +1,109 @@
+/* Mode spectacle : grandes cibles tactiles (≥ 64 px), noir de la nuit, une colonne à 360 px. */
+.show {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 16px 24px;
+  background: var(--color-bg);
+}
+.show__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.show__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.show__exit {
+  opacity: 0.7;
+}
+.show__stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 84px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+  font: 700 32px var(--font-body);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.show__offline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-danger-border);
+}
+.show__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.show__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border-strong);
+}
+.show__tile--running {
+  border-color: var(--color-success);
+}
+.show__icon {
+  color: var(--color-accent-text);
+}
+.show__name {
+  font: 600 24px/1.2 var(--font-display);
+  overflow-wrap: anywhere;
+}
+.show__meta {
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+.show__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: var(--target-large);
+  margin-top: auto;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font: 700 22px var(--font-body);
+  cursor: pointer;
+}
+.show__action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.show__action--stop {
+  background: transparent;
+  color: var(--color-danger-text);
+  border: 2px solid var(--color-danger-border);
+}
+.show__empty {
+  color: var(--color-text-muted);
+  font-size: 18px;
+}
+.show__foot {
+  margin-top: auto;
+}
