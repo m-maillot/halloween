@@ -265,17 +265,18 @@ button.pill {
   margin: 0;
   padding-left: 18px;
 }
-.field--check {
+.field.field--check {
+  justify-items: start;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
   column-gap: 10px;
 }
-.field--check input {
+.field.field--check input {
   width: 22px;
   height: 22px;
 }
-.field--check .field__hint {
+.field.field--check .field__hint {
   grid-column: 2;
 }
 .field-group,
@@ -635,4 +636,16 @@ a.btn {
   padding: 10px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-warning);
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rule {
+  margin: 0 0 10px;
 }
