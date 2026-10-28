@@ -34,6 +34,13 @@ def test_unit_restarts_always_and_has_a_watchdog():
     assert unit()["Install"]["WantedBy"] == "multi-user.target"
 
 
+def test_unit_gives_lgpio_a_writable_working_directory_and_forces_it():
+    # Régression constatée sur un vrai Pi : sans cela, repli silencieux sur le pilote sysfs.
+    service = unit()["Service"]
+    assert service["WorkingDirectory"] == "/var/lib/halloween"
+    assert "Environment=GPIOZERO_PIN_FACTORY=lgpio" in UNIT.read_text(encoding="utf-8")
+
+
 def test_unit_does_not_run_as_root():
     assert unit()["Service"]["User"] not in ("", "root")
 
