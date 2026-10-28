@@ -90,7 +90,7 @@ Règles :
 
 ### 4.4 Déclencheurs
 
-Liste de règles lisibles : « Quand **[Bouton d'entrée]** est **[appui court]** → **[Lancer : Scénario principal]** ».
+Liste de règles lisibles : « Quand **[Bouton d'entrée]** est **[appui court]** → **[Lancer : Scénario principal]** ». Pour un détecteur de mouvement (PIR), le seul événement proposé est « mouvement détecté » : « Quand **[Couloir]** détecte un mouvement → **[Lancer : …]** ».
 
 - Sélecteurs : source (bouton / planning), bouton du catalogue, événement (court / long / double), action (lancer un scénario / arrêter).
 - Pour le planning : constructeur de cron simple (jours, heure) avec prévisualisation en clair (« tous les 31 octobre à 18:00 »). Pas de déclencheurs liés au soleil en v1.

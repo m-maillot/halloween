@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import Field, TypeAdapter, ValidationError, model_validator
 
 from halloween.config.models import Model, Slug
+from halloween.drivers.base import ButtonEventKind
 from halloween.issues import Issue
 from halloween.program.runs import Policy
 from halloween.triggers.cron import CronError, CronExpression
@@ -20,7 +21,7 @@ class ButtonTrigger(Model):
     id: Slug
     source: Literal["button"]
     button: Slug
-    event: Literal["short", "long", "double"]
+    event: ButtonEventKind
     # Soit lancer un programme, soit arrêter tout (arrêt d'urgence) : jamais les deux.
     program: Slug | None = None
     action: Literal["stop"] | None = None

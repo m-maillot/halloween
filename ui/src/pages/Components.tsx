@@ -18,14 +18,14 @@ const KINDS: Kind[] = ["relays", "buttons", "lights", "switches"];
 
 const SINGULAR: Record<Kind, string> = {
   relays: "un relais",
-  buttons: "un bouton",
+  buttons: "un bouton ou un détecteur",
   lights: "une lumière",
   switches: "un interrupteur",
 };
 
 const EMPTY: Record<Kind, string> = {
   relays: "Aucun relais. Ajoutez le premier pour piloter une décoration branchée sur le Pi.",
-  buttons: "Aucun bouton physique.",
+  buttons: "Aucun bouton ni détecteur de mouvement.",
   lights: "Aucune lumière Home Assistant.",
   switches: "Aucun interrupteur Home Assistant.",
 };
@@ -39,7 +39,7 @@ export function summary(kind: Kind, item: Item): string[] {
     }
     case "buttons": {
       const button = item as Button_;
-      return [`GPIO ${button.pin}`, button.pull === "down" ? "pull-down" : "pull-up"];
+      return [`GPIO ${button.pin}`, button.kind === "motion" ? "détecteur de mouvement" : button.pull === "down" ? "pull-down" : "pull-up"];
     }
     case "lights": {
       const light = item as Light;

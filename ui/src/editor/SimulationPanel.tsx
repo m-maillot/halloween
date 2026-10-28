@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { PRESS_TEXT } from "../triggers/model";
 import { useState } from "react";
 import type { Devices } from "../catalog/CatalogProvider";
 import { Button, Field, SelectField } from "../components/ui";
@@ -8,10 +9,9 @@ import type { SimulationOut } from "./timeline";
 export interface Press {
   t: number;
   button: string;
-  event: "short" | "long" | "double";
+  event: "short" | "long" | "double" | "motion";
 }
 
-const EVENT_LABEL = { short: "court", long: "long", double: "double" } as const;
 
 /** Frise du dernier résultat + appuis de boutons à rejouer (un « attendre un bouton » sans appui reste bloqué). */
 export function SimulationPanel({
@@ -49,7 +49,7 @@ export function SimulationPanel({
               {presses.map((press, i) => (
                 <li key={i}>
                   <span className="pill">
-                    {buttons.find((b) => b.id === press.button)?.name ?? press.button} : appui {EVENT_LABEL[press.event]} à {press.t} s
+                    {buttons.find((b) => b.id === press.button)?.name ?? press.button} : {PRESS_TEXT[press.event]} à {press.t} s
                     <button type="button" className="pill__close" aria-label="Retirer cet appui" onClick={() => onPresses(presses.filter((_, j) => j !== i))}>
                       ×
                     </button>
@@ -73,10 +73,11 @@ export function SimulationPanel({
                 </option>
               ))}
             </SelectField>
-            <SelectField label="Appui" value={event} onChange={(e) => setEvent(e.target.value as Press["event"])}>
+            <SelectField label="Événement" value={event} onChange={(e) => setEvent(e.target.value as Press["event"])}>
               <option value="short">court</option>
               <option value="long">long</option>
               <option value="double">double</option>
+              <option value="motion">mouvement (détecteur)</option>
             </SelectField>
             <Field label="À (s)" type="number" min="0" step="any" value={t} onChange={(e) => setT(e.target.value)} />
             <Button type="submit">Ajouter l'appui</Button>

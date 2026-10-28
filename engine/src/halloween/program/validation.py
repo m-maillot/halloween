@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping
 
-from halloween.config.models import AppConfig, RelayMode
+from halloween.config.models import AppConfig, RelayMode, event_mismatch
 from halloween.issues import Issue
 from halloween.program.models import (
     ButtonCondition,
@@ -46,7 +46,7 @@ def validate_program(
     relays = {r.id: r for r in config.relays}
     lights = {light.id: light for light in config.lights}
     switches = {s.id: s for s in config.switches}
-    buttons = {b.id for b in config.buttons}
+    buttons = {b.id: b for b in config.buttons}
 
     def error(code: str, message: str, node: Node) -> None:
         issues.append(Issue("error", code, message, node_id=node.id))
@@ -123,8 +123,12 @@ def _check_light(node: LightNode, lights, relays, switches, error) -> None:
 
 def _check_condition(node, relays, buttons, error) -> None:
     condition = node.condition
-    if isinstance(condition, ButtonCondition) and condition.id not in buttons:
-        error("unknown_component", f"bouton inconnu : `{condition.id}`", node)
+    if isinstance(condition, ButtonCondition):
+        button = buttons.get(condition.id)
+        if button is None:
+            error("unknown_component", f"bouton inconnu : `{condition.id}`", node)
+        elif message := event_mismatch(button, condition.event):
+            error("button_event", message, node)
     elif isinstance(condition, RelayIsCondition):
         relay = relays.get(condition.id)
         if relay is None:

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -87,11 +87,36 @@ class Relay(Component):
 
 
 class Button(Component):
+    """Entrée numérique : un bouton (appui court, long, double) ou un détecteur de mouvement PIR."""
+
+    # `motion` : détecteur PIR, dont la sortie passe au niveau haut sur un mouvement.
+    kind: Literal["button", "motion"] = "button"
     pin: GpioPin
     pull: Literal["up", "down"] = "up"
     debounce_ms: Annotated[int, Field(ge=0, le=1_000)] = 50
     long_press_ms: Annotated[int, Field(ge=100, le=10_000)] = 800
     double_press_ms: Annotated[int, Field(ge=100, le=2_000)] = 400
+    # Détecteur seulement : détections ignorées après le démarrage du moteur (le PIR se stabilise).
+    warmup_s: Annotated[int, Field(ge=0, le=600)] = 60
+
+    @model_validator(mode="before")
+    @classmethod
+    def _motion_pulls_down(cls, data: Any) -> Any:
+        # Sortie de PIR active à l'état haut : sauf indication contraire, résistance vers le bas.
+        if isinstance(data, dict) and data.get("kind") == "motion" and "pull" not in data:
+            return {**data, "pull": "down"}
+        return data
+
+
+def event_mismatch(button: Button, event: str) -> str | None:
+    """Message si `event` ne peut jamais venir de cette entrée (détecteur : `motion` seul)."""
+    if button.kind == "motion" and event != "motion":
+        return (
+            f"`{button.name}` est un détecteur de mouvement : seul l'événement « mouvement » existe"
+        )
+    if button.kind == "button" and event == "motion":
+        return f"`{button.name}` est un bouton : il ne détecte pas de mouvement"
+    return None
 
 
 class Light(Component):

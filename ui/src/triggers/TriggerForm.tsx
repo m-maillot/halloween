@@ -3,7 +3,7 @@ import { formErrors, type FormErrors } from "../api/errors";
 import type { Devices } from "../catalog/CatalogProvider";
 import { Button, CheckField, Field, Modal, SelectField } from "../components/ui";
 import { describe, parseCron, scheduleProblem, toCron, DAY_LABELS, MONTH_LABELS, type Schedule } from "./cron";
-import { EVENT_LABEL, POLICY_LABEL, duplicates, newId, type ButtonTrigger, type PressEvent, type Policy, type ScheduleTrigger, type Trigger } from "./model";
+import { EVENT_LABEL, POLICY_LABEL, duplicates, eventsFor, newId, type ButtonTrigger, type PressEvent, type Policy, type ScheduleTrigger, type Trigger } from "./model";
 
 type Mode = Schedule["mode"];
 const MODE_LABEL: Record<Mode, string> = {
@@ -32,7 +32,7 @@ export function TriggerForm({
   const buttons = devices?.buttons ?? [];
   const [source, setSource] = useState<Trigger["source"]>(existing?.source ?? "button");
   const [button, setButton] = useState(existing?.source === "button" ? existing.button : (buttons[0]?.id ?? ""));
-  const [event, setEvent] = useState<PressEvent>(existing?.source === "button" ? existing.event : "short");
+  const [event, setEvent] = useState<PressEvent>(existing?.source === "button" ? existing.event : eventsFor(buttons.find((b) => b.id === button)?.kind)[0]);
   const [stop, setStop] = useState(existing?.source === "button" && existing.action === "stop");
   const [program, setProgram] = useState(existing?.program ?? programs[0]?.id ?? "");
   const [policy, setPolicy] = useState<Policy>(existing?.policy ?? "ignore");
@@ -52,6 +52,15 @@ export function TriggerForm({
       : { id: existing?.id ?? newId(all, "schedule"), source: "schedule", cron: toCron(schedule), ...(timezone.trim() ? { timezone: timezone.trim() } : {}), program, policy, enabled };
   const clash = candidate ? duplicates([...all.filter((t) => t.id !== candidate.id), candidate]).get(candidate.id) : undefined;
   const complete = source === "button" ? Boolean(button) && (stop || Boolean(program)) : Boolean(program);
+
+  const kindOf = (id: string) => buttons.find((b) => b.id === id)?.kind;
+  const events = eventsFor(kindOf(button));
+
+  function chooseButton(id: string) {
+    setButton(id);
+    // Un détecteur ne produit que « mouvement », un bouton jamais : on aligne l'événement.
+    if (!eventsFor(kindOf(id)).includes(event)) setEvent(eventsFor(kindOf(id))[0]);
+  }
 
   function chooseEvent(next: PressEvent) {
     setEvent(next);
@@ -91,8 +100,8 @@ export function TriggerForm({
 
         {source === "button" ? (
           <>
-            <SelectField label="Bouton" value={button} onChange={(e) => setButton(e.target.value)} error={errors.fields.button}>
-              {buttons.length === 0 && <option value="">Aucun bouton : créez-en un dans Composants</option>}
+            <SelectField label="Bouton" value={button} onChange={(e) => chooseButton(e.target.value)} error={errors.fields.button}>
+              {buttons.length === 0 && <option value="">Aucun bouton ni détecteur : créez-en un dans Composants</option>}
               {buttons.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -100,7 +109,7 @@ export function TriggerForm({
               ))}
             </SelectField>
             <SelectField label="Événement" value={event} onChange={(e) => chooseEvent(e.target.value as PressEvent)}>
-              {(Object.keys(EVENT_LABEL) as PressEvent[]).map((k) => (
+              {events.map((k) => (
                 <option key={k} value={k}>
                   {EVENT_LABEL[k]}
                 </option>

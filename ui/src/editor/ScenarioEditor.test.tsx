@@ -266,7 +266,7 @@ test("les appuis simulés sont envoyés avec la simulation", async () => {
   await user.click(screen.getByRole("button", { name: "Simuler" }));
   const section = await screen.findByRole("region", { name: "Simulation" });
   expect(within(section).getByText(/attend un appui de bouton/)).toBeInTheDocument();
-  await user.selectOptions(within(section).getByLabelText("Appui"), "double");
+  await user.selectOptions(within(section).getByLabelText("Événement"), "double");
   await user.clear(within(section).getByLabelText("À (s)"));
   await user.type(within(section).getByLabelText("À (s)"), "7");
   await user.click(within(section).getByRole("button", { name: "Ajouter l'appui" }));

@@ -298,3 +298,34 @@ test("une lumière créée en ne cochant que « luminosité » n'annonce ni coul
     supports_transition: false,
   });
 });
+
+test("créer un détecteur de mouvement : type PIR, résistance vers le bas, chauffe, sans seuils d'appui", async () => {
+  respond = ({ method, path }) =>
+    method === "POST" && path === "/api/components/buttons" ? Response.json({ component: { id: "couloir" }, issues: [] }, { status: 201 }) : undefined;
+  const user = await openApp();
+  await user.click(screen.getByRole("tab", { name: /Boutons/ }));
+  await user.click(screen.getByRole("button", { name: "Ajouter un bouton ou un détecteur" }));
+  const dialog = screen.getByRole("dialog");
+  await user.type(within(dialog).getByLabelText("Nom", { exact: true }), "Couloir");
+  await user.selectOptions(within(dialog).getByLabelText("Type"), "motion");
+  expect(within(dialog).getByLabelText(/Résistance/)).toHaveValue("down");
+  expect(within(dialog).queryByLabelText("Seuil d'appui long (ms)")).toBeNull();
+  expect(within(dialog).getByLabelText("Chauffe du capteur (s)")).toHaveValue(60);
+  await user.selectOptions(within(dialog).getByLabelText(/Broche/), "26");
+  await user.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  const post = calls.find((c) => c.method === "POST" && c.path === "/api/components/buttons")!;
+  expect(post.body).toMatchObject({ name: "Couloir", kind: "motion", pin: 26, pull: "down", warmup_s: 60 });
+  expect(post.body).not.toHaveProperty("long_press_ms");
+});
+
+test("un détecteur existant : on écoute un mouvement, et le type ne se change pas", async () => {
+  devices.buttons.push({ id: "pir", name: "Couloir", kind: "motion", pin: 26, pull: "down", debounce_ms: 50, warmup_s: 60 });
+  const user = await openApp();
+  await user.click(screen.getByRole("tab", { name: /Boutons/ }));
+  await user.click(screen.getByLabelText("Couloir"));
+  expect(screen.getByLabelText("Type")).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "Écouter un mouvement" }));
+  act(() => FakeWebSocket.emit({ type: "button_event", button_id: "pir", event: "motion" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Mouvement reçu.");
+});

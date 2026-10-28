@@ -210,3 +210,22 @@ test("verrouillé : lecture seule, sans suggestion", async () => {
   expect(screen.getByRole("button", { name: "Supprimer" })).toBeDisabled();
   expect(screen.queryByText(/n'a pas de règle d'appui long/)).toBeNull();
 });
+
+test("un détecteur de mouvement ne propose que « mouvement détecté » et l'enregistre", async () => {
+  devices.buttons.push({ id: "pir", name: "Couloir", kind: "motion", pin: 26, pull: "down", debounce_ms: 50, warmup_s: 60 } as never);
+  const user = await open();
+  await user.click(screen.getByRole("button", { name: "Nouvelle règle" }));
+  const dialog = screen.getByRole("dialog", { name: "Nouvelle règle" });
+  expect(within(dialog).getAllByRole("option", { name: /appui/ })).toHaveLength(3); // le bouton, d'abord
+  await user.selectOptions(within(dialog).getByLabelText("Bouton"), "pir");
+  const events = within(dialog).getByLabelText("Événement");
+  expect(within(events).getAllByRole("option").map((o) => o.textContent)).toEqual(["un mouvement détecté"]);
+  expect(events).toHaveValue("motion");
+  await user.selectOptions(within(dialog).getByLabelText("Scénario à lancer"), "scenario-principal");
+  await user.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+  await waitFor(() => expect(puts()).toHaveLength(1));
+  expect(puts()[0].body).toEqual([
+    { id: "regle-bouton-1", source: "button", button: "pir", event: "motion", program: "scenario-principal", policy: "ignore", enabled: true },
+  ]);
+  expect(await screen.findByText("Quand Couloir détecte un mouvement")).toBeInTheDocument();
+});

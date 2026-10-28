@@ -95,7 +95,7 @@ export function usePrograms(): ProgramSummary[] {
 
 export interface ButtonPress {
   button_id: string;
-  event: "short" | "long" | "double";
+  event: "short" | "long" | "double" | "motion";
   at: number;
 }
 

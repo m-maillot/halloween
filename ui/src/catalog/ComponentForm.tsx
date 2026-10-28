@@ -252,13 +252,42 @@ export function ComponentForm({
 
         {kind === "buttons" && (
           <>
+            <SelectField
+              label="Type"
+              value={draft.kind}
+              disabled={Boolean(existing)}
+              hint={existing ? "Le type ne change pas : créez un autre composant." : undefined}
+              onChange={(e) => {
+                const next = e.target.value as Draft["kind"];
+                // Sortie de PIR : niveau haut sur un mouvement, donc résistance vers le bas.
+                setDraft((d) => ({ ...d, kind: next, pull: next === "motion" ? "down" : "up" }));
+              }}
+            >
+              <option value="button">Bouton</option>
+              <option value="motion">Détecteur de mouvement (PIR)</option>
+            </SelectField>
             <SelectField label="Résistance (pull)" value={draft.pull} error={field("pull")} onChange={(e) => set("pull", e.target.value as Draft["pull"])}>
               <option value="up">Pull-up (bouton vers la masse)</option>
-              <option value="down">Pull-down (bouton vers le 3,3 V)</option>
+              <option value="down">Pull-down (bouton vers le 3,3 V, sortie de détecteur)</option>
             </SelectField>
             <Field label="Anti-rebond (ms)" type="number" min="0" max="1000" value={draft.debounce_ms} error={field("debounce_ms")} onChange={(e) => set("debounce_ms", e.target.value)} />
-            <Field label="Seuil d'appui long (ms)" type="number" min="100" max="10000" value={draft.long_press_ms} error={field("long_press_ms")} onChange={(e) => set("long_press_ms", e.target.value)} />
-            <Field label="Délai du double appui (ms)" type="number" min="100" max="2000" value={draft.double_press_ms} error={field("double_press_ms")} onChange={(e) => set("double_press_ms", e.target.value)} />
+            {draft.kind === "motion" ? (
+              <Field
+                label="Chauffe du capteur (s)"
+                type="number"
+                min="0"
+                max="600"
+                value={draft.warmup_s}
+                error={field("warmup_s")}
+                hint="Détections ignorées après le démarrage du moteur (pas après une simple modification), le temps que le PIR se stabilise (0 : aucune)."
+                onChange={(e) => set("warmup_s", e.target.value)}
+              />
+            ) : (
+              <>
+                <Field label="Seuil d'appui long (ms)" type="number" min="100" max="10000" value={draft.long_press_ms} error={field("long_press_ms")} onChange={(e) => set("long_press_ms", e.target.value)} />
+                <Field label="Délai du double appui (ms)" type="number" min="100" max="2000" value={draft.double_press_ms} error={field("double_press_ms")} onChange={(e) => set("double_press_ms", e.target.value)} />
+              </>
+            )}
           </>
         )}
 

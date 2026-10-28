@@ -46,3 +46,10 @@ test("chaque lumière gérant un paramètre a aussi un bloc déjà réglé", () 
   expect(lights.filter((b) => !b.extraState.tuned).map((b) => b.extraState.target)).toEqual(["bandeau", "guirlande", "simple"]);
   expect(lights.filter((b) => b.extraState.tuned).map((b) => b.extraState.target)).toEqual(["bandeau", "guirlande"]); // « simple » n'a rien à régler
 });
+
+test("un détecteur de mouvement a sa condition préréglée sur « mouvement »", () => {
+  const devices = { ...base, buttons: [{ id: "bp", kind: "button" }, { id: "pir", kind: "motion" }] } as unknown as Devices;
+  const conditions = categories(devices).find((c) => c.name === "Conditions")!.contents as unknown as { type: string; extraState?: { button: string }; fields?: object }[];
+  const byButton = Object.fromEntries(conditions.filter((b) => b.type === "hw_cond_button").map((b) => [b.extraState!.button, b.fields ?? null]));
+  expect(byButton).toEqual({ bp: null, pir: { EVENT: "motion" } });
+});
