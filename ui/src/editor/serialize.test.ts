@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, expect, test } from "vitest";
 import type { Devices } from "../catalog/CatalogProvider";
 import { registerBlocks } from "./blocks";
 import { setCatalog } from "./catalog";
+import { buildToolbox } from "./toolbox";
 import { loadProgram, orphanStacks, workspaceToProgram, type Program } from "./serialize";
 
 const devices = {
@@ -345,4 +346,24 @@ test("un paramètre posé reste visible engrenage fermé, même si la lumière n
   const input = (row: string) => ws.getBlockById("g")!.getInput(row)!.isVisible();
   expect(input("P_COLOR")).toBe(true);
   expect(input("P_TRANS")).toBe(false);
+});
+
+test("le bloc de la palette « lumière réglée » donne un nœud avec couleur, luminosité et transition", () => {
+  type Entry = { extraState: { target: string; tuned?: boolean } };
+  const entry = (buildToolbox(devices).contents as unknown as { name: string; contents: Entry[] }[])
+    .find((c) => c.name === "Lumières")!.contents.find((b) => b.extraState.tuned && b.extraState.target === "bandeau")!;
+  const start = Blockly.serialization.blocks.append({ type: "hw_start" }, ws) as Blockly.Block;
+  const light = Blockly.serialization.blocks.append(entry as Blockly.serialization.blocks.State, ws) as Blockly.Block;
+  start.nextConnection!.connect(light.previousConnection!);
+  const root = workspaceToProgram(ws, meta).scripts[0].root as unknown as { children: Record<string, unknown>[] };
+  // la luminosité est en 0-255 côté moteur : 100 % -> 255
+  expect(root.children[0]).toMatchObject({ type: "light", target: "bandeau", state: "on", rgb_color: [255, 138, 43], brightness: 255, transition: 1 });
+});
+
+test("la lumière réglée ne retient pas « tuned » : rechargée, elle est un bloc lumière ordinaire", () => {
+  const entry = { type: "hw_light", extraState: { target: "guirlande", tuned: true } };
+  const block = Blockly.serialization.blocks.append(entry as Blockly.serialization.blocks.State, ws) as Blockly.Block;
+  expect(block.getFieldValue("USE_BRIGHT")).toBe("TRUE");
+  expect(block.getFieldValue("USE_COLOR")).toBe("FALSE"); // la guirlande ne gère pas la couleur
+  expect(Blockly.serialization.blocks.save(block)?.extraState).toEqual({ target: "guirlande" });
 });
