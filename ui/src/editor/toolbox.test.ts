@@ -32,3 +32,17 @@ test("les blocs de contrôle sont tous proposés, et les conditions suivent les 
   const conditions = all.find((c) => c.name === "Conditions")!.contents.map((b) => b.type);
   expect(conditions).toEqual(["hw_cond_relay_is", "hw_cond_random"]); // aucun bouton dans ce catalogue
 });
+
+test("chaque lumière gérant un paramètre a aussi un bloc déjà réglé", () => {
+  const devices = {
+    ...base,
+    lights: [
+      { id: "bandeau", supports_color: true, supports_brightness: true, supports_transition: true },
+      { id: "guirlande", supports_color: false, supports_brightness: true, supports_transition: false },
+      { id: "simple", supports_color: false, supports_brightness: false, supports_transition: false },
+    ],
+  } as unknown as Devices;
+  const lights = categories(devices).find((c) => c.name === "Lumières")!.contents as unknown as { extraState: { target: string; tuned?: boolean } }[];
+  expect(lights.filter((b) => !b.extraState.tuned).map((b) => b.extraState.target)).toEqual(["bandeau", "guirlande", "simple"]);
+  expect(lights.filter((b) => b.extraState.tuned).map((b) => b.extraState.target)).toEqual(["bandeau", "guirlande"]); // « simple » n'a rien à régler
+});

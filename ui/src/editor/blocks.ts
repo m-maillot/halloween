@@ -25,6 +25,8 @@ export interface ComponentState {
   trigger?: boolean;
   fire_and_forget?: boolean;
   on_error?: "continue" | "abort";
+  /** Bloc de la palette « lumière réglée » : couleur, luminosité et transition posées d'emblée (jamais sauvegardé). */
+  tuned?: boolean;
 }
 
 export type ComponentKindName = "relay" | "light" | "switch";
@@ -33,6 +35,7 @@ export interface ComponentBlock extends Blockly.Block {
   kind_: ComponentKindName;
   target_: string;
   fallbackTrigger_?: boolean;
+  tunedPending_?: boolean;
   optionsOpen_: boolean;
   updateShape_(): void;
   toggleOptions_(): void;
@@ -124,6 +127,11 @@ function shape(this: ComponentBlock) {
   for (const [name, value] of Object.entries(keep)) {
     if (this.getField(name)) this.setFieldValue(value as string, name);
   }
+  if (this.tunedPending_) {
+    // Posé ici, avant le premier rendu : la hauteur du bloc est alors juste dans la palette.
+    this.tunedPending_ = false;
+    for (const [, use] of PARAM_ROWS) if (this.caps_?.[use]) this.setFieldValue("TRUE", use);
+  }
   refreshVisibility(this);
 }
 
@@ -145,6 +153,7 @@ function defineComponentBlock(type: string, kind: ComponentKindName): void {
     loadExtraState(this: ComponentBlock, state: ComponentState) {
       this.target_ = state.target;
       this.fallbackTrigger_ = state.trigger;
+      this.tunedPending_ = state.tuned;
       this.updateShape_();
     },
     toggleOptions_(this: ComponentBlock) {
