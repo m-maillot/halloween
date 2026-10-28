@@ -1,7 +1,7 @@
 import type { Devices } from "../catalog/CatalogProvider";
 
 export type Policy = "ignore" | "restart" | "queue";
-export type PressEvent = "short" | "long" | "double";
+export type PressEvent = "short" | "long" | "double" | "motion";
 
 export interface ButtonTrigger {
   id: string;
@@ -24,7 +24,16 @@ export interface ScheduleTrigger {
 }
 export type Trigger = ButtonTrigger | ScheduleTrigger;
 
-export const EVENT_LABEL: Record<PressEvent, string> = { short: "un appui court", long: "un appui long", double: "un double appui" };
+export const EVENT_LABEL: Record<PressEvent, string> = {
+  short: "un appui court",
+  long: "un appui long",
+  double: "un double appui",
+  motion: "un mouvement détecté",
+};
+/** Pour les journaux et listes : « appui court », « mouvement »… */
+export const PRESS_TEXT: Record<PressEvent, string> = { short: "appui court", long: "appui long", double: "appui double", motion: "mouvement" };
+/** Événements qu'une entrée peut produire : un détecteur ne détecte que le mouvement, un bouton jamais. */
+export const eventsFor = (kind: string | undefined): PressEvent[] => (kind === "motion" ? ["motion"] : ["short", "long", "double"]);
 export const POLICY_LABEL: Record<Policy, string> = {
   ignore: "ignorer s'il tourne déjà",
   restart: "le redémarrer s'il tourne déjà",

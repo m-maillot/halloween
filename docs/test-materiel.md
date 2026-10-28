@@ -102,6 +102,37 @@ Faire : un appui court, un appui long (> 0,8 s), un double appui rapide.
 - [ ] Un seul appui ne produit **pas** plusieurs événements (sinon augmenter `debounce_ms`, ex. 80, dans `config.json`).
 - [ ] L'appui court est confirmé environ 0,4 s après le relâchement (c'est normal : c'est le délai d'attente d'un éventuel second appui, réglable par `double_press_ms`).
 
+## 5 bis. Détecteur de mouvement (PIR), si vous en avez un
+
+Module de type HC-SR501 (à confirmer sur votre module : la plupart des PIR vendus en lot pour Arduino le sont). Trois broches :
+
+| module | Raspberry Pi |
+|---|---|
+| `VCC` | 5 V (broche 2 ou 4) |
+| `GND` | masse (broche 6) |
+| `OUT` | un GPIO libre, ex. GPIO 26 (broche 37) |
+
+La sortie d'un HC-SR501 est à **3,3 V** : elle va directement sur le GPIO. **Vérifiez-le au multimètre** sur votre module avant de brancher : certaines copies sortent du 5 V, qui abîme le Pi (dans ce cas, pont diviseur 2 kΩ / 3,3 kΩ).
+
+Réglages sur le module (deux potentiomètres, un cavalier) :
+
+- **Délai** : durée pendant laquelle la sortie reste haute après une détection (de 3 s à plusieurs minutes). Le plus court convient : l'événement part au début de la détection.
+- **Sensibilité** : portée (3 à 7 m environ). Commencer au milieu.
+- **Cavalier de mode** : `L` = un seul déclenchement par détection ; `H` = la sortie reste haute tant qu'il y a du mouvement. Les deux conviennent, le moteur ne réagit qu'au front montant.
+
+Dans l'interface (Composants → Boutons → Ajouter) : type « Détecteur de mouvement (PIR) », la broche choisie. Ou dans `config.json` : `{ "id": "couloir", "name": "Couloir", "kind": "motion", "pin": 26 }` (`pull` vaut `down` par défaut).
+
+```bash
+uv run halloween-cli gpio-check
+uv run halloween-cli button watch
+```
+
+- [ ] `gpio-check` propose de passer devant le capteur et affiche « mouvement détecté ».
+- [ ] Après la mise sous tension, le capteur met **30 à 60 s** à se stabiliser : des détections parasites avant sont normales. Le moteur les ignore pendant `warmup_s` (60 s par défaut) après **son** démarrage ; si le capteur est alimenté bien avant le moteur, mettez `0`.
+- [ ] Passer devant plusieurs fois : un événement `motion` à chaque nouvelle détection, pas un flot continu. Après chaque détection, le module reste insensible environ 2,5 s : c'est son fonctionnement.
+- [ ] Dans Déclencheurs : une règle « Quand le détecteur détecte un mouvement → scénario » lance bien le scénario (politique « l'ignorer » si on ne veut pas le relancer pendant qu'il tourne).
+- [ ] Sensibilité : un animal ou un courant d'air chaud (radiateur, soleil) ne déclenche pas à tort.
+
 ## 6. Branchement des objets
 
 Pi **hors tension** (ou module relais débranché) pour chaque branchement.

@@ -1,4 +1,5 @@
 import { Play, Square } from "lucide-react";
+import { PRESS_TEXT } from "../triggers/model";
 import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import { unwrap } from "../api/errors";
@@ -19,7 +20,6 @@ import {
 } from "../dashboard/useLive";
 import { useEngine } from "../engine/EngineProvider";
 
-const PRESS_LABEL = { short: "court", long: "long", double: "double" } as const;
 
 type Tile = { kind: Exclude<Kind, "buttons">; item: Existing };
 
@@ -231,7 +231,7 @@ export function Dashboard() {
             {presses.map((press, i) => (
               <li key={`${press.at}-${i}`}>
                 <Pill tone={i === 0 ? "active" : "neutral"} emphasis={i === 0}>
-                  {buttonName(press.button_id)} : appui {PRESS_LABEL[press.event]} à{" "}
+                  {buttonName(press.button_id)} : {PRESS_TEXT[press.event]} à{" "}
                   {new Date(press.at).toLocaleTimeString("fr-FR")}
                 </Pill>
               </li>

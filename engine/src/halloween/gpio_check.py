@@ -100,9 +100,8 @@ async def check_buttons(
     await driver.start()
     try:
         for button in config.buttons:
-            report.info(
-                f"  Appuyez sur « {button.name} » (GPIO {button.pin}), {press_timeout_s:g} s…"
-            )
+            action = "Passez devant" if button.kind == "motion" else "Appuyez sur"
+            report.info(f"  {action} « {button.name} » (GPIO {button.pin}), {press_timeout_s:g} s…")
             try:
                 async with asyncio.timeout(press_timeout_s):
                     while True:
@@ -116,7 +115,8 @@ async def check_buttons(
                     f"(pull={button.pull} : vérifier le câblage vers {wired_to})"
                 )
                 continue
-            report.ok(f"GPIO {button.pin:<2} {button.id} : appui {event.event} détecté")
+            what = "mouvement" if event.event == "motion" else f"appui {event.event}"
+            report.ok(f"GPIO {button.pin:<2} {button.id} : {what} détecté")
     finally:
         await driver.close()
 

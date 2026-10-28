@@ -208,10 +208,10 @@ export function registerControlBlocks(): void {
     init(this: TargetBlock) {
       this.target_ = "";
       this.appendDummyInput()
-        .appendField("bouton")
+        .appendField("entrée")
         .appendField(new Blockly.FieldDropdown(() => targetOptions(listButtons(), this.target_ || null)), "BUTTON")
         .appendField("a reçu")
-        .appendField(new Blockly.FieldDropdown([["un appui court", "short"], ["un appui long", "long"], ["un double appui", "double"]]), "EVENT");
+        .appendField(new Blockly.FieldDropdown([["un appui court", "short"], ["un appui long", "long"], ["un double appui", "double"], ["un mouvement", "motion"]]), "EVENT");
       this.setOutput(true, "Boolean");
       this.setColour(CONDITION_HUE);
     },

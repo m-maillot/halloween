@@ -12,7 +12,7 @@ from halloween.log import get_logger
 
 log = get_logger("drivers")
 
-ButtonEventKind = Literal["short", "long", "double"]
+ButtonEventKind = Literal["short", "long", "double", "motion"]
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ class RelayDriver(ABC):
 
 
 class ButtonDriver:
-    """Émet des événements d'appui (court, long, double) vers les abonnés.
+    """Émet des événements d'appui (court, long, double) ou de mouvement vers les abonnés.
 
     Classe de base : les pilotes réels appellent `_emit` quand un appui est reconnu."""
 

@@ -9,6 +9,7 @@ export type Existing =
   | Devices["switches"][number];
 
 export interface Draft {
+  kind: "button" | "motion";
   name: string;
   image: string | null;
   pin: string;
@@ -21,6 +22,7 @@ export interface Draft {
   debounce_ms: string;
   long_press_ms: string;
   double_press_ms: string;
+  warmup_s: string;
   entity_id: string;
   supports_color: boolean;
   supports_brightness: boolean;
@@ -32,6 +34,7 @@ const text = (value: number | null | undefined, fallback = "") => (value == null
 export function draftOf(existing?: Existing): Draft {
   const e = (existing ?? {}) as Partial<Record<keyof Draft, unknown>>;
   return {
+    kind: (e.kind as Draft["kind"]) ?? "button",
     name: (e.name as string) ?? "",
     image: (e.image as string | null | undefined) ?? null,
     pin: text(e.pin as number | undefined),
@@ -44,6 +47,7 @@ export function draftOf(existing?: Existing): Draft {
     debounce_ms: text(e.debounce_ms as number | undefined, "50"),
     long_press_ms: text(e.long_press_ms as number | undefined, "800"),
     double_press_ms: text(e.double_press_ms as number | undefined, "400"),
+    warmup_s: text(e.warmup_s as number | undefined, "60"),
     entity_id: (e.entity_id as string) ?? "",
     supports_color: Boolean(e.supports_color),
     supports_brightness: Boolean(e.supports_brightness),
@@ -70,11 +74,13 @@ export function bodyOf(kind: Kind, draft: Draft): object {
     case "buttons":
       return {
         ...common,
+        kind: draft.kind,
         pin: num(draft.pin),
         pull: draft.pull,
         debounce_ms: num(draft.debounce_ms),
-        long_press_ms: num(draft.long_press_ms),
-        double_press_ms: num(draft.double_press_ms),
+        ...(draft.kind === "motion"
+          ? { warmup_s: num(draft.warmup_s) }
+          : { long_press_ms: num(draft.long_press_ms), double_press_ms: num(draft.double_press_ms) }),
       };
     case "lights":
       return {

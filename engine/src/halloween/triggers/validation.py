@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Collection
 
-from halloween.config.models import AppConfig
+from halloween.config.models import AppConfig, event_mismatch
 from halloween.issues import Issue
 from halloween.triggers.models import ButtonTrigger, Trigger
 
@@ -14,7 +14,7 @@ def validate_triggers(
     triggers: list[Trigger], config: AppConfig, program_ids: Collection[str]
 ) -> list[Issue]:
     issues: list[Issue] = []
-    buttons = {b.id for b in config.buttons}
+    buttons = {b.id: b for b in config.buttons}
 
     for trigger_id, count in Counter(t.id for t in triggers).items():
         if count > 1:
@@ -39,6 +39,8 @@ def validate_triggers(
                         component_id=trigger.id,
                     )
                 )
+            elif message := event_mismatch(buttons[trigger.button], trigger.event):
+                issues.append(Issue("error", "button_event", message, component_id=trigger.id))
             if trigger.enabled:
                 seen[(trigger.button, trigger.event)].append(trigger.id)
         if (trigger.program is not None) and trigger.program not in program_ids:

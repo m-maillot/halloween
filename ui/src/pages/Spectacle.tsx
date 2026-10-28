@@ -12,9 +12,9 @@ import { haPill } from "../layout/Banner";
 import { showOrder } from "../show/order";
 import { useWakeLock } from "../show/useWakeLock";
 import { useCatalog } from "../catalog/CatalogProvider";
+import { PRESS_TEXT } from "../triggers/model";
 import "../show/show.css";
 
-const PRESS = { short: "court", long: "long", double: "double" } as const;
 
 function seconds(value: number): string {
   return value >= 120 ? `${Math.floor(value / 60)} min ${Math.round(value % 60)} s` : `${Math.round(value)} s`;
@@ -161,7 +161,7 @@ export function Spectacle() {
       )}
 
       <footer className="show__foot" aria-live="polite">
-        {press ? <Pill tone="active">{buttonName(press.button_id)} : appui {PRESS[press.event]}</Pill> : <span className="muted">En attente d'un appui de bouton…</span>}
+        {press ? <Pill tone="active">{buttonName(press.button_id)} : {PRESS_TEXT[press.event]}</Pill> : <span className="muted">En attente d'un appui ou d'un mouvement…</span>}
       </footer>
 
       {asking && <CodePrompt title={asking.title} onSubmit={asking.action} onClose={() => setAsking(null)} initialWait={0} />}

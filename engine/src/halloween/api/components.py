@@ -24,7 +24,7 @@ from halloween.config.models import (
     Switch,
 )
 from halloween.config.validation import validate_config
-from halloween.drivers.base import HAError
+from halloween.drivers.base import ButtonEventKind, HAError
 from halloween.issues import Issue, errors, warnings
 from halloween.program.actions import ActionFailed
 from halloween.program.interpreter import ExecutionError
@@ -319,7 +319,7 @@ class ComponentTest(BaseModel):
     brightness: int | None = None
     transition: float | None = None
     # boutons (`press`)
-    event: Literal["short", "long", "double"] = "short"
+    event: ButtonEventKind = "short"
 
 
 class TestResult(BaseModel):

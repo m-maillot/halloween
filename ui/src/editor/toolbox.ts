@@ -31,7 +31,12 @@ export function buildToolbox(devices: Devices | null) {
         name: "Conditions",
         colour: "290",
         contents: [
-          ...(devices?.buttons ?? []).map((b) => ({ kind: "block", type: "hw_cond_button", extraState: { button: b.id } })),
+          ...(devices?.buttons ?? []).map((b) => ({
+            kind: "block",
+            type: "hw_cond_button",
+            extraState: { button: b.id },
+            ...(b.kind === "motion" ? { fields: { EVENT: "motion" } } : {}),
+          })),
           ...(devices?.relays ?? []).map((r) => ({ kind: "block", type: "hw_cond_relay_is", extraState: { relay: r.id } })),
           { kind: "block", type: "hw_cond_random" },
         ],

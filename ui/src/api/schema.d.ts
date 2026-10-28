@@ -604,7 +604,7 @@ export interface components {
              * Event
              * @enum {string}
              */
-            event: "short" | "long" | "double";
+            event: "short" | "long" | "double" | "motion";
             /** Id */
             id: string;
             /**
@@ -630,6 +630,12 @@ export interface components {
             /** Image */
             image?: string | null;
             /**
+             * Kind
+             * @default button
+             * @enum {string}
+             */
+            kind: "button" | "motion";
+            /**
              * Long Press Ms
              * @default 800
              */
@@ -644,6 +650,11 @@ export interface components {
              * @enum {string}
              */
             pull: "up" | "down";
+            /**
+             * Warmup S
+             * @default 60
+             */
+            warmup_s: number;
         };
         /** ButtonOut */
         ButtonOut: {
@@ -664,6 +675,12 @@ export interface components {
             /** Image Url */
             image_url?: string | null;
             /**
+             * Kind
+             * @default button
+             * @enum {string}
+             */
+            kind: "button" | "motion";
+            /**
              * Long Press Ms
              * @default 800
              */
@@ -678,6 +695,11 @@ export interface components {
              * @enum {string}
              */
             pull: "up" | "down";
+            /**
+             * Warmup S
+             * @default 60
+             */
+            warmup_s: number;
         };
         /** ButtonPress */
         ButtonPress: {
@@ -688,7 +710,7 @@ export interface components {
              * @default short
              * @enum {string}
              */
-            event: "short" | "long" | "double";
+            event: "short" | "long" | "double" | "motion";
             /** T */
             t: number;
         };
@@ -700,7 +722,7 @@ export interface components {
              * Event
              * @enum {string}
              */
-            event: "short" | "long" | "double";
+            event: "short" | "long" | "double" | "motion";
             /** Ts */
             ts?: number;
             /**
@@ -733,7 +755,7 @@ export interface components {
              * Event
              * @enum {string}
              */
-            event: "short" | "long" | "double";
+            event: "short" | "long" | "double" | "motion";
             /** Id */
             id: string;
             /**
@@ -839,7 +861,7 @@ export interface components {
              * @default short
              * @enum {string}
              */
-            event: "short" | "long" | "double";
+            event: "short" | "long" | "double" | "motion";
             /** Rgb Color */
             rgb_color?: [
                 number,

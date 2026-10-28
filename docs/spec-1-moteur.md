@@ -88,19 +88,23 @@ Configuration initiale :
 
 Les quatre sont actuellement en `latched` : l'objet est actif tant que le relais est fermé. Le mode `push` reste disponible pour de futurs équipements.
 
-### 4.2 Boutons (GPIO entrée)
+### 4.2 Boutons et détecteurs de mouvement (GPIO entrée)
 
 | champ | description |
 |---|---|
+| `kind` | `button` (défaut) ou `motion` (détecteur de mouvement PIR, voir ci-dessous) |
 | `pin` | GPIO BCM (entrée) |
-| `pull` | `up` (défaut, bouton vers GND) ou `down` |
+| `pull` | `up` (défaut, bouton vers GND) ou `down` (défaut d'un détecteur `motion`) |
 | `debounce_ms` | anti-rebond, défaut 50 |
 | `long_press_ms` | seuil d'appui long, défaut 800 |
 | `double_press_ms` | délai maximal entre deux appuis pour un appui double, défaut 400 (voir ci-dessous) |
+| `warmup_s` | `motion` seulement : détections ignorées pendant ce délai après le démarrage du moteur, défaut 60 |
 
 Reconnaissance des appuis : **long** dès que le bouton reste enfoncé `long_press_ms` (sans attendre le relâchement) ; **double** si un second appui suit un appui court dans les `double_press_ms` ; **court** sinon. Conséquence : un appui court n'est confirmé qu'après `double_press_ms` (400 ms par défaut), le temps de s'assurer qu'il n'y a pas de second appui.
 
-Configuration initiale : `bouton_principal`, pin 21. L'utilisateur peut en ajouter d'autres. Un bouton **émet des événements** (`short`, `long`, `double`) ; ce qu'ils déclenchent est défini par les déclencheurs (section 7).
+**Détecteur de mouvement** (`kind: "motion"`) : sa sortie passe au niveau haut quand il détecte un mouvement ; le moteur émet **un événement `motion` sur le front montant**, sans seuils d'appui (`long_press_ms` et `double_press_ms` sont sans effet). Un mouvement continu garde la sortie haute : un seul événement, pas un par image. Pendant `warmup_s` après le démarrage du moteur, les détections sont ignorées (le capteur se stabilise à la mise sous tension). La validation refuse un événement `motion` sur un bouton, et `short` / `long` / `double` sur un détecteur.
+
+Configuration initiale : `bouton_principal`, pin 21. L'utilisateur peut en ajouter d'autres. Un bouton **émet des événements** (`short`, `long`, `double`), un détecteur l'événement `motion` ; ce qu'ils déclenchent est défini par les déclencheurs (section 7).
 
 ### 4.3 Home Assistant (connexion)
 

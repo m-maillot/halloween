@@ -120,7 +120,8 @@ class GpioRelayDriver(RelayDriver):
 
 
 class GpioButtonDriver(ButtonDriver):
-    """Boutons câblés sur des broches GPIO (appui = niveau bas avec `pull: up`).
+    """Boutons et détecteurs de mouvement câblés sur des broches GPIO (appui = niveau bas avec
+    `pull: up` ; un détecteur de mouvement signale `motion` sur le front montant de sa sortie).
 
     gpiozero appelle ses rappels dans un fil à part : chaque front est transmis à la boucle asyncio
     (`call_soon_threadsafe`), où `PressClassifier` reconnaît appui court, long ou double.
@@ -139,8 +140,12 @@ class GpioButtonDriver(ButtonDriver):
         from gpiozero import Button as GpioButton
 
         loop = asyncio.get_running_loop()
+        started = loop.time()
         try:
             for button in self._buttons:
+                if button.kind == "motion":
+                    self._devices[button.id] = self._motion_device(button, loop, started)
+                    continue
                 classifier = PressClassifier(
                     lambda kind, button_id=button.id: self._on_event(button_id, kind),
                     button.long_press_ms / 1000,
@@ -160,6 +165,28 @@ class GpioButtonDriver(ButtonDriver):
             await self.close()
             raise
 
+    def _motion_device(
+        self, button: Button, loop: asyncio.AbstractEventLoop, started: float
+    ) -> Any:
+        from gpiozero import Button as GpioButton
+
+        warmup_s = button.warmup_s
+
+        def detected() -> None:
+            if loop.time() - started < warmup_s:
+                log.info("mouvement ignoré (capteur en chauffe)", extra={"button": button.id})
+                return
+            self._on_event(button.id, "motion")
+
+        device = GpioButton(
+            button.pin,
+            pull_up=button.pull == "up",
+            bounce_time=button.debounce_ms / 1000 or None,
+            pin_factory=self._pin_factory,
+        )
+        device.when_pressed = self._threadsafe(loop, detected)
+        return device
+
     @staticmethod
     def _threadsafe(loop: asyncio.AbstractEventLoop, callback: Any) -> Any:
         def forward() -> None:
@@ -169,7 +196,9 @@ class GpioButtonDriver(ButtonDriver):
         return forward
 
     def _on_event(self, button_id: str, kind: ButtonEventKind) -> None:
-        log.info("appui", extra={"button": button_id, "event": kind})
+        log.info(
+            "mouvement" if kind == "motion" else "appui", extra={"button": button_id, "event": kind}
+        )
         task = asyncio.ensure_future(self._emit(ButtonEvent(button_id, kind)))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -177,7 +206,8 @@ class GpioButtonDriver(ButtonDriver):
     async def close(self) -> None:
         for device in self._devices.values():
             device.when_pressed = None
-            device.when_released = None
+            if device.when_released is not None:  # absent sur un détecteur de mouvement
+                device.when_released = None
             with contextlib.suppress(Exception):
                 device.close()
         for classifier in self._classifiers.values():

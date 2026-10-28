@@ -16,6 +16,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from halloween.config.models import Slug
+from halloween.drivers.base import ButtonEventKind
 
 NodeId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
 Channel = Annotated[int, Field(ge=0, le=255)]
@@ -35,7 +36,7 @@ class Model(BaseModel):
 class ButtonCondition(Model):
     type: Literal["button"]
     id: Slug
-    event: Literal["short", "long", "double"]
+    event: ButtonEventKind
 
 
 class RelayIsCondition(Model):

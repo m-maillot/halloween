@@ -4,10 +4,10 @@ import { unwrap } from "../api/errors";
 import { Button, Field } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { useEngine } from "../engine/EngineProvider";
+import { PRESS_TEXT } from "../triggers/model";
 import type { Existing } from "./draft";
 import type { Kind } from "./icons";
 
-const PRESS: Record<string, string> = { short: "court", long: "long", double: "double" };
 
 function rgbOf(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -31,7 +31,8 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
     if (!listening) return;
     return subscribe((event) => {
       if (event.type === "button_event" && event.button_id === item.id) {
-        setResult(`Appui ${PRESS[event.event] ?? event.event} reçu.`);
+        const text = PRESS_TEXT[event.event] ?? event.event;
+        setResult(`${text.charAt(0).toUpperCase()}${text.slice(1)} reçu.`);
         setListening(false);
       }
     });
@@ -56,6 +57,7 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
   }
 
   const light = kind === "lights" ? (item as { supports_color: boolean; supports_brightness: boolean; supports_transition: boolean }) : null;
+  const motion = kind === "buttons" && (item as { kind?: string }).kind === "motion";
   const relay = kind === "relays" ? (item as { mode: string }) : null;
 
   return (
@@ -65,9 +67,11 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
       {kind === "buttons" ? (
         <>
           <Button onClick={() => { setResult(null); setListening(true); }} disabled={listening}>
-            {listening ? "Appuyez sur le bouton…" : "Écouter un appui"}
+            {listening ? (motion ? "Passez devant le capteur…" : "Appuyez sur le bouton…") : motion ? "Écouter un mouvement" : "Écouter un appui"}
           </Button>
-          <span className="field__hint">Appuyez sur le bouton physique : l'événement reçu s'affiche ici.</span>
+          <span className="field__hint">
+            {motion ? "Passez devant le capteur : la détection s'affiche ici (hors période de chauffe)." : "Appuyez sur le bouton physique : l'événement reçu s'affiche ici."}
+          </span>
         </>
       ) : (
         <>

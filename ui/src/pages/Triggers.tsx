@@ -85,7 +85,7 @@ export function Triggers() {
       ) : (
         <ul className="rule-list">
           {list.map((t) => {
-            const label = t.source === "button" ? `Quand ${buttonName(devices, t.button)} reçoit ${EVENT_LABEL[t.event]}` : `Quand c'est ${describe(parseCron(t.cron))}`;
+            const label = t.source === "button" ? t.event === "motion" ? `Quand ${buttonName(devices, t.button)} détecte un mouvement` : `Quand ${buttonName(devices, t.button)} reçoit ${EVENT_LABEL[t.event]}` : `Quand c'est ${describe(parseCron(t.cron))}`;
             const action = t.source === "button" && t.action === "stop" ? "Arrêter tout" : `Lancer : ${programName(t.program ?? "")}`;
             const warning = issues.find((i) => i.severity === "warning" && i.component_id === t.id);
             return (

@@ -8,7 +8,8 @@
             "enum": [
               "short",
               "long",
-              "double"
+              "double",
+              "motion"
             ],
             "title": "Event",
             "type": "string"
@@ -72,6 +73,15 @@
             ],
             "title": "Image"
           },
+          "kind": {
+            "default": "button",
+            "enum": [
+              "button",
+              "motion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "long_press_ms": {
             "default": 800,
             "maximum": 10000.0,
@@ -99,6 +109,13 @@
             ],
             "title": "Pull",
             "type": "string"
+          },
+          "warmup_s": {
+            "default": 60,
+            "maximum": 600.0,
+            "minimum": 0.0,
+            "title": "Warmup S",
+            "type": "integer"
           }
         },
         "required": [
@@ -152,6 +169,15 @@
             ],
             "title": "Image Url"
           },
+          "kind": {
+            "default": "button",
+            "enum": [
+              "button",
+              "motion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "long_press_ms": {
             "default": 800,
             "maximum": 10000.0,
@@ -179,6 +205,13 @@
             ],
             "title": "Pull",
             "type": "string"
+          },
+          "warmup_s": {
+            "default": 60,
+            "maximum": 600.0,
+            "minimum": 0.0,
+            "title": "Warmup S",
+            "type": "integer"
           }
         },
         "required": [
@@ -200,7 +233,8 @@
             "enum": [
               "short",
               "long",
-              "double"
+              "double",
+              "motion"
             ],
             "title": "Event",
             "type": "string"
@@ -228,7 +262,8 @@
             "enum": [
               "short",
               "long",
-              "double"
+              "double",
+              "motion"
             ],
             "title": "Event",
             "type": "string"
@@ -300,7 +335,8 @@
             "enum": [
               "short",
               "long",
-              "double"
+              "double",
+              "motion"
             ],
             "title": "Event",
             "type": "string"
@@ -577,7 +613,8 @@
             "enum": [
               "short",
               "long",
-              "double"
+              "double",
+              "motion"
             ],
             "title": "Event",
             "type": "string"
