@@ -128,10 +128,15 @@ class GpioButtonDriver(ButtonDriver):
     L'anti-rebond (`debounce_ms`) est assuré par gpiozero.
     """
 
-    def __init__(self, buttons: Iterable[Button], pin_factory: Any = None) -> None:
+    def __init__(
+        self, buttons: Iterable[Button], pin_factory: Any = None, warmup_origin: float | None = None
+    ) -> None:
+        """`warmup_origin` : instant (horloge de la boucle) d'où se compte `warmup_s` d'un
+        détecteur ; par défaut le démarrage de ce pilote."""
         super().__init__()
         self._buttons = list(buttons)
         self._pin_factory = pin_factory
+        self._warmup_origin = warmup_origin
         self._devices: dict[str, Any] = {}
         self._classifiers: dict[str, PressClassifier] = {}
         self._tasks: set[asyncio.Task[None]] = set()
@@ -140,7 +145,7 @@ class GpioButtonDriver(ButtonDriver):
         from gpiozero import Button as GpioButton
 
         loop = asyncio.get_running_loop()
-        started = loop.time()
+        started = loop.time() if self._warmup_origin is None else self._warmup_origin
         try:
             for button in self._buttons:
                 if button.kind == "motion":

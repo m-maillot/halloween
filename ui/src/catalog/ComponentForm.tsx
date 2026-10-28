@@ -279,7 +279,7 @@ export function ComponentForm({
                 max="600"
                 value={draft.warmup_s}
                 error={field("warmup_s")}
-                hint="Détections ignorées après le démarrage du moteur, le temps que le PIR se stabilise (0 : aucune)."
+                hint="Détections ignorées après le démarrage du moteur (pas après une simple modification), le temps que le PIR se stabilise (0 : aucune)."
                 onChange={(e) => set("warmup_s", e.target.value)}
               />
             ) : (

@@ -21,13 +21,13 @@ def sensor(**kw) -> Button:
     return Button.model_validate({"id": "pir", "name": "PIR", "pin": 26, "kind": "motion", **kw})
 
 
-def drive(factory: MockFactory, buttons: list[Button], script):
+def drive(factory: MockFactory, buttons: list[Button], script, warmup_origin=None):
     """Joue des niveaux sur les broches simulées ; retourne (temps, événement) reçus."""
     received: list[tuple[float, ButtonEvent]] = []
 
     async def main():
         loop = asyncio.get_running_loop()
-        driver = GpioButtonDriver(buttons, factory)
+        driver = GpioButtonDriver(buttons, factory, warmup_origin=warmup_origin)
         driver.subscribe(lambda event: received.append((round(loop.time(), 3), event)))
         await driver.start()
         for t, pin, level in script:
@@ -73,6 +73,17 @@ def test_detections_during_warmup_are_ignored():
     script = [(10, 26, "high"), (11, 26, "low"), (70, 26, "high"), (71, 26, "low")]
     received = drive(factory, [sensor(warmup_s=60)], script)
     assert received == [(70.0, ButtonEvent("pir", "motion"))]
+
+
+def test_warmup_counts_from_the_given_origin_not_from_the_driver_start():
+    # Le moteur reconstruit ses pilotes à chaque changement de configuration : le capteur, lui,
+    # est sous tension depuis bien plus longtemps.
+    factory = MockFactory()
+    script = [(100, 26, "high"), (101, 26, "low")]
+    received = drive(factory, [sensor(warmup_s=60)], script, warmup_origin=-1000.0)
+    assert received == [(100.0, ButtonEvent("pir", "motion"))]  # compté depuis -1000, pas 0
+    received = drive(MockFactory(), [sensor(warmup_s=60)], [(30, 26, "high")], warmup_origin=0.0)
+    assert received == []
 
 
 def test_a_sensor_and_a_button_work_side_by_side():

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -10,6 +11,11 @@ from halloween.config.models import AppConfig
 from halloween.drivers.base import ButtonDriver, HAClient, RelayDriver
 from halloween.drivers.dryrun import DryRunHAClient
 from halloween.drivers.homeassistant import TOKEN_ENV, HttpHAClient
+
+# La chauffe d'un détecteur de mouvement court depuis la mise sous tension, pas depuis la dernière
+# reconstruction des pilotes (un changement de configuration en provoque une) : on compte depuis
+# le démarrage du processus.
+PROCESS_STARTED = time.monotonic()
 
 
 @dataclass
@@ -31,7 +37,7 @@ def gpio_backend() -> Backend:
     def buttons(config: AppConfig) -> ButtonDriver:
         from halloween.drivers.gpio import GpioButtonDriver
 
-        return GpioButtonDriver(config.buttons)
+        return GpioButtonDriver(config.buttons, warmup_origin=PROCESS_STARTED)
 
     def ha(config: AppConfig, write: Callable[[str], None], dry_run: bool) -> HAClient:
         settings = config.home_assistant
