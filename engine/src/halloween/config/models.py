@@ -1,6 +1,6 @@
 """Modèles de la configuration : composants et connexion Home Assistant.
 
-Composants : relais, boutons, lumières, interrupteurs.
+Composants : relais, boutons, lumières, interrupteurs, lecteurs de vidéos.
 
 La validation ici est locale à chaque composant. Les contrôles qui croisent plusieurs composants
 (ids et broches uniques, références) sont dans `halloween.config.validation`.
@@ -130,6 +130,50 @@ class Switch(Component):
     entity_id: Annotated[str, StringConstraints(pattern=r"^switch\.[a-z0-9_]+$")]
 
 
+# Dossier média local de Home Assistant : un simple nom de fichier y est cherché.
+LOCAL_MEDIA = "media-source://media_source/local/"
+
+
+class Video(Model):
+    id: Slug
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+    # Nom d'un fichier du dossier média local de Home Assistant (`halloween_video.mp4`), ou
+    # n'importe quelle source que le script accepte (`media-source://...`, URL).
+    source: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    # Durée, pour « attendre la fin » dans un scénario.
+    duration_s: Annotated[float, Field(gt=0, le=86_400)] | None = None
+
+    @property
+    def media(self) -> str:
+        """Valeur envoyée au script : un nom de fichier seul désigne le dossier média local."""
+        if "://" in self.source or "/" in self.source:
+            return self.source
+        return LOCAL_MEDIA + self.source
+
+
+class Player(Component):
+    """Lecteur de vidéos (Shield + Kodi) piloté par un script Home Assistant.
+
+    Le script reçoit `video` (la source) et `boucle` (vrai/faux) et lance la lecture."""
+
+    script: Annotated[str, StringConstraints(pattern=r"^script\.[a-z0-9_]+$")]
+    videos: Annotated[list[Video], Field(min_length=1)]
+    # Vidéo jouée en boucle au repos (écran noir) : démarrage, arrêt global, fin de scénario.
+    rest_video: Slug | None = None
+
+    @model_validator(mode="after")
+    def _check_videos(self) -> Self:
+        ids = [video.id for video in self.videos]
+        if len(ids) != len(set(ids)):
+            raise ValueError("ids de vidéos en double")
+        if self.rest_video is not None and self.rest_video not in ids:
+            raise ValueError(f"vidéo de repos inconnue : `{self.rest_video}`")
+        return self
+
+    def video(self, video_id: str) -> Video | None:
+        return next((v for v in self.videos if v.id == video_id), None)
+
+
 class HomeAssistant(Model):
     url: str
     # Le jeton n'apparaît jamais dans repr() (donc ni dans les logs ni dans les traces).
@@ -164,6 +208,7 @@ class AppConfig(Model):
     buttons: list[Button] = Field(default_factory=list)
     lights: list[Light] = Field(default_factory=list)
     switches: list[Switch] = Field(default_factory=list)
+    players: list[Player] = Field(default_factory=list)
     # Par id de lumière ou d'interrupteur. Les relais maintenus reposent toujours éteints ; les
     # composants absents d'ici ne sont pas touchés au repos.
     rest_state: dict[Slug, RestState] = Field(default_factory=dict)

@@ -137,9 +137,10 @@ async def test_ha_connection(body: HaTestIn, engine: EngineDep) -> HaTestOut:
 
 @router.get("/ha/entities", response_model=list[EntityOut], operation_id="list_ha_entities")
 async def list_ha_entities(
-    engine: EngineDep, domain: Annotated[Literal["light", "switch"] | None, Query()] = None
+    engine: EngineDep,
+    domain: Annotated[Literal["light", "switch", "script"] | None, Query()] = None,
 ) -> list[EntityOut]:
-    """Entités de Home Assistant, à proposer dans les formulaires de lumières et d'interrupteurs."""
+    """Entités de Home Assistant à proposer dans les formulaires (lumières, interrupteurs…)."""
     settings = engine.config.home_assistant
     if settings is None or not (os.environ.get(TOKEN_ENV) or settings.token):
         raise api_error(409, "Home Assistant n'est pas configuré (URL et jeton)")
@@ -159,5 +160,5 @@ async def list_ha_entities(
             capabilities=infer_capabilities(e.attributes) if e.domain == "light" else None,
         )
         for e in entities
-        if e.domain in ("light", "switch")
+        if e.domain in ("light", "switch", "script")
     ]

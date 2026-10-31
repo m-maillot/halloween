@@ -5,7 +5,7 @@ import { Button, CheckField, Field, Modal, SelectField } from "../components/ui"
 import { useToasts } from "../components/Toasts";
 import { useEngine } from "../engine/EngineProvider";
 import { useCatalog } from "./CatalogProvider";
-import { bodyOf, draftOf, usedPins, type Draft, type Existing } from "./draft";
+import { bodyOf, draftOf, pendingKey, usedPins, type Draft, type Existing, type VideoDraft } from "./draft";
 import { ImagePicker } from "./ImagePicker";
 import { KIND_LABEL, type Kind } from "./icons";
 import { TestPanel } from "./TestPanel";
@@ -16,6 +16,7 @@ const TITLE: Record<Kind, string> = {
   buttons: "bouton",
   lights: "lumière",
   switches: "interrupteur",
+  players: "lecteur vidéo",
 };
 
 const GPIO_PINS = Array.from({ length: 26 }, (_, i) => i + 2); // BCM 2 à 27
@@ -27,7 +28,7 @@ interface Entity {
 }
 
 /** Entités Home Assistant du domaine ; `failed` si le moteur n'a pas pu les lister. */
-function useEntities(domain: "light" | "switch" | null) {
+function useEntities(domain: "light" | "switch" | "script" | null) {
   const [state, setState] = useState<{ list: Entity[]; failed: boolean; loading: boolean }>({
     list: [],
     failed: false,
@@ -55,6 +56,79 @@ function usageLines(message: string): string[] {
   return after.split(" ; ").filter(Boolean);
 }
 
+/** Vidéos du lecteur : nom affiché, fichier du dossier média de Home Assistant, durée facultative. */
+function PlayerFields({
+  draft,
+  error,
+  onVideos,
+  onRest,
+}: {
+  draft: Draft;
+  error: (name: string) => string | undefined;
+  onVideos: (videos: VideoDraft[]) => void;
+  onRest: (id: string) => void;
+}) {
+  const patch = (index: number, change: Partial<VideoDraft>) =>
+    onVideos(draft.videos.map((video, i) => (i === index ? { ...video, ...change } : video)));
+  return (
+    <fieldset className="field-group">
+      <legend className="field__label">Vidéos</legend>
+      <span className="field__hint">
+        Le script reçoit <code>video</code> (le fichier) et <code>boucle</code> (vrai ou faux). Un simple nom de fichier désigne le
+        dossier média local de Home Assistant.
+      </span>
+      {draft.videos.map((video, index) => (
+        <div key={index} className="video-row">
+          <Field label={`Nom de la vidéo ${index + 1}`} value={video.name} maxLength={60} required onChange={(e) => patch(index, { name: e.target.value })} />
+          <Field
+            label={`Fichier de la vidéo ${index + 1}`}
+            value={video.source}
+            required
+            placeholder="halloween_video.mp4"
+            onChange={(e) => patch(index, { source: e.target.value })}
+          />
+          <Field
+            label={`Durée de la vidéo ${index + 1} (s)`}
+            type="number"
+            min="0"
+            step="any"
+            value={video.duration_s}
+            hint="Facultative : sert à « attendre la fin » dans un scénario."
+            onChange={(e) => patch(index, { duration_s: e.target.value })}
+          />
+          <Button
+            variant="ghost"
+            onClick={() => {
+              onVideos(draft.videos.filter((_, i) => i !== index));
+              const rest = draft.rest_video;
+              if (rest === (video.id || pendingKey(index))) onRest("");
+              else if (rest.startsWith("#") && Number(rest.slice(1)) > index) onRest(pendingKey(Number(rest.slice(1)) - 1));
+            }}
+          >
+            Retirer la vidéo {index + 1}
+          </Button>
+        </div>
+      ))}
+      {error("videos") && <span className="field__error">{error("videos")}</span>}
+      <Button onClick={() => onVideos([...draft.videos, { id: "", name: "", source: "", duration_s: "" }])}>Ajouter une vidéo</Button>
+      <SelectField
+        label="Vidéo de repos (écran noir)"
+        value={draft.rest_video}
+        error={error("rest_video")}
+        hint="Jouée en boucle au démarrage, à l'arrêt et à la fin d'un scénario."
+        onChange={(e) => onRest(e.target.value)}
+      >
+        <option value="">Aucune (le lecteur n'est pas touché au repos)</option>
+        {draft.videos.map((video, index) => (
+          <option key={index} value={video.id || pendingKey(index)}>
+            {video.name || `Vidéo ${index + 1}`}
+          </option>
+        ))}
+      </SelectField>
+    </fieldset>
+  );
+}
+
 type Pending = { action: "save" | "delete"; text: string } | null;
 
 export function ComponentForm({
@@ -76,7 +150,9 @@ export function ComponentForm({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [blockedBy, setBlockedBy] = useState<string[] | null>(null);
 
-  const domain = kind === "lights" ? "light" : kind === "switches" ? "switch" : null;
+  const domain = kind === "lights" ? "light" : kind === "switches" ? "switch" : kind === "players" ? "script" : null;
+  const entityLabel = kind === "players" ? "Script Home Assistant" : "Entité Home Assistant";
+  const entityField = kind === "players" ? "script" : "entity_id";
   const entities = useEntities(domain);
   const pins = devices ? usedPins(devices, existing?.id) : new Map<number, string>();
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
@@ -295,21 +371,21 @@ export function ComponentForm({
           <>
             {entities.failed || (!entities.loading && entities.list.length === 0) ? (
               <Field
-                label="Entité Home Assistant"
+                label={entityLabel}
                 value={draft.entity_id}
                 required
                 placeholder={`${domain}.nom_de_l_entite`}
-                error={field("entity_id")}
-                hint="La liste n'a pas pu être lue (Home Assistant injoignable ou sans entité de ce type) : saisissez l'identifiant."
+                error={field(entityField)}
+                hint={`La liste n'a pas pu être lue (Home Assistant injoignable ou sans ${kind === "players" ? "script" : "entité de ce type"}) : saisissez l'identifiant.`}
                 onChange={(e) => pickEntity(e.target.value)}
               />
             ) : (
               <SelectField
-                label="Entité Home Assistant"
+                label={entityLabel}
                 value={draft.entity_id}
                 required
                 disabled={entities.loading}
-                error={field("entity_id")}
+                error={field(entityField)}
                 onChange={(e) => pickEntity(e.target.value)}
               >
                 <option value="">{entities.loading ? "Chargement…" : "Choisir une entité"}</option>
@@ -330,6 +406,15 @@ export function ComponentForm({
             <CheckField label="Luminosité" checked={draft.supports_brightness} onChange={(e) => set("supports_brightness", e.target.checked)} />
             <CheckField label="Transition" checked={draft.supports_transition} onChange={(e) => set("supports_transition", e.target.checked)} />
           </fieldset>
+        )}
+
+        {kind === "players" && (
+          <PlayerFields
+            draft={draft}
+            error={field}
+            onVideos={(videos) => set("videos", videos)}
+            onRest={(video) => set("rest_video", video)}
+          />
         )}
 
         {existing ? (

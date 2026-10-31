@@ -12,15 +12,17 @@ type Relay = Devices["relays"][number];
 type Button_ = Devices["buttons"][number];
 type Light = Devices["lights"][number];
 type Switch_ = Devices["switches"][number];
-type Item = Relay | Button_ | Light | Switch_;
+type Player_ = Devices["players"][number];
+type Item = Relay | Button_ | Light | Switch_ | Player_;
 
-const KINDS: Kind[] = ["relays", "buttons", "lights", "switches"];
+const KINDS: Kind[] = ["relays", "buttons", "lights", "switches", "players"];
 
 const SINGULAR: Record<Kind, string> = {
   relays: "un relais",
   buttons: "un bouton ou un détecteur",
   lights: "une lumière",
   switches: "un interrupteur",
+  players: "un lecteur vidéo",
 };
 
 const EMPTY: Record<Kind, string> = {
@@ -28,6 +30,7 @@ const EMPTY: Record<Kind, string> = {
   buttons: "Aucun bouton ni détecteur de mouvement.",
   lights: "Aucune lumière Home Assistant.",
   switches: "Aucun interrupteur Home Assistant.",
+  players: "Aucun lecteur vidéo. Un lecteur pilote un script Home Assistant qui joue des vidéos (Shield, Kodi).",
 };
 
 export function summary(kind: Kind, item: Item): string[] {
@@ -52,6 +55,10 @@ export function summary(kind: Kind, item: Item): string[] {
     }
     case "switches":
       return [(item as Switch_).entity_id];
+    case "players": {
+      const player = item as Player_;
+      return [player.script, `${player.videos.length} vidéo${player.videos.length > 1 ? "s" : ""}`];
+    }
   }
 }
 

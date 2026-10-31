@@ -140,5 +140,10 @@ class HAClient(ABC):
     async def switch_off(self, entity_id: str) -> None:
         await self.call_service("switch", "turn_off", {"entity_id": entity_id})
 
+    async def play_video(self, script: str, media: str, loop: bool) -> None:
+        """Appelle le script Home Assistant d'un lecteur (`script.<nom>`) : champs `video` et
+        `boucle`."""
+        await self.call_service("script", script.split(".", 1)[1], {"video": media, "boucle": loop})
+
     async def close(self) -> None:  # noqa: B027 - facultatif
         """Ferme les connexions."""

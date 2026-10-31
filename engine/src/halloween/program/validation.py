@@ -21,6 +21,7 @@ from halloween.program.models import (
     LightNode,
     Node,
     ParallelNode,
+    PlayerNode,
     Program,
     RelayIsCondition,
     RelayNode,
@@ -33,7 +34,7 @@ from halloween.program.models import (
 
 MAX_CALL_DEPTH = 5
 
-ACTION_NODES = (RelayNode, LightNode, SwitchNode)
+ACTION_NODES = (RelayNode, LightNode, SwitchNode, PlayerNode)
 
 
 def validate_program(
@@ -46,6 +47,7 @@ def validate_program(
     relays = {r.id: r for r in config.relays}
     lights = {light.id: light for light in config.lights}
     switches = {s.id: s for s in config.switches}
+    players = {p.id: p for p in config.players}
     buttons = {b.id: b for b in config.buttons}
 
     def error(code: str, message: str, node: Node) -> None:
@@ -53,14 +55,18 @@ def validate_program(
 
     for node in program.nodes():
         if isinstance(node, RelayNode):
-            _check_relay(node, relays, lights, switches, error)
+            _check_relay(node, relays, lights, {**switches, **players}, error)
         elif isinstance(node, LightNode):
-            _check_light(node, lights, relays, switches, error)
+            _check_light(node, lights, relays, {**switches, **players}, error)
         elif isinstance(node, SwitchNode):
             if node.target not in switches:
                 error(
-                    "unknown_component", _unknown("interrupteur", node.target, relays, lights), node
+                    "unknown_component",
+                    _unknown("interrupteur", node.target, relays, lights, players),
+                    node,
                 )
+        elif isinstance(node, PlayerNode):
+            _check_player(node, players, _unknown_others(relays, lights, switches), error)
         elif isinstance(node, IfNode | WaitUntilNode):
             _check_condition(node, relays, buttons, error)
 
@@ -101,6 +107,30 @@ def _check_relay(node, relays, lights, switches, error) -> None:
         error(
             "wait_for_end",
             f"« attendre la fin » exige une durée d'animation sur `{relay.name}`",
+            node,
+        )
+
+
+def _unknown_others(*kinds: Mapping[str, object]) -> dict[str, object]:
+    return {key: True for kind in kinds for key in kind}
+
+
+def _check_player(node: PlayerNode, players, others, error) -> None:
+    player = players.get(node.target)
+    if player is None:
+        error("unknown_component", _unknown("lecteur", node.target, others), node)
+        return
+    if node.action == "rest":
+        if player.rest_video is None:
+            error("no_rest_video", f"`{player.name}` n'a pas de vidéo de repos", node)
+        return
+    video = player.video(node.video or "")
+    if video is None:
+        error("unknown_video", f"`{player.name}` n'a pas de vidéo `{node.video}`", node)
+    elif node.wait_for_end and video.duration_s is None:
+        error(
+            "wait_for_end",
+            f"« attendre la fin » exige la durée de la vidéo `{video.name}` sur `{player.name}`",
             node,
         )
 

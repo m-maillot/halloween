@@ -65,18 +65,19 @@ export function Dashboard() {
         ...devices.relays.map((item) => ({ kind: "relays" as const, item })),
         ...devices.lights.map((item) => ({ kind: "lights" as const, item })),
         ...devices.switches.map((item) => ({ kind: "switches" as const, item })),
+        ...devices.players.map((item) => ({ kind: "players" as const, item })),
       ]
     : [];
   const buttonName = (id: string) => devices?.buttons.find((b) => b.id === id)?.name ?? id;
 
   async function toggle(tile: Tile, current: LiveState) {
     const push = tile.kind === "relays" && (tile.item as Devices["relays"][number]).mode === "push";
-    const action = push ? "trigger" : current.state === "on" ? "off" : "on";
+    const action = tile.kind === "players" ? "rest" : push ? "trigger" : current.state === "on" ? "off" : "on";
     try {
       await unwrap(
         api.POST("/api/components/{kind}/{component_id}/test", {
           params: { path: { kind: tile.kind, component_id: tile.item.id } },
-          body: { action, event: "short" }, // `event` ne sert qu'aux boutons (le contrat le déclare obligatoire)
+          body: { action, event: "short", loop: false }, // `event` (boutons) et `loop` (lecteurs) sont déclarés obligatoires par le contrat
         }),
       );
     } catch (error) {
@@ -185,6 +186,7 @@ export function Dashboard() {
             {tiles.map((tile) => {
               const current = stateOf(tile, status?.relays ?? {}, live);
               const push = tile.kind === "relays" && (tile.item as Devices["relays"][number]).mode === "push";
+              const player = tile.kind === "players" ? (tile.item as Devices["players"][number]) : null;
               const light = tile.kind === "lights" ? (tile.item as Devices["lights"][number]) : null;
               const richer = light && (light.supports_color || light.supports_brightness || light.supports_transition);
               return (
@@ -194,7 +196,7 @@ export function Dashboard() {
                       <ComponentImage kind={tile.kind} image={tile.item.image} imageUrl={tile.item.image_url} size={44} />
                       <div className="component-card__text">
                         <strong>{tile.item.name}</strong>
-                        {!push && (
+                        {!push && !player && (
                           <Pill tone={current.state === "on" ? "active" : "neutral"} emphasis={current.state === "on"}>
                             {STATE_TEXT[current.state]}
                             {current.rgb && current.state === "on" && (
@@ -203,9 +205,22 @@ export function Dashboard() {
                           </Pill>
                         )}
                         <div className="form-actions">
-                          <Button disabled={locked} onClick={() => void toggle(tile, current)}>
-                            {push ? "Déclencher" : current.state === "on" ? "Éteindre" : "Allumer"}
-                          </Button>
+                          {player ? (
+                            <>
+                              <Button variant="ghost" disabled={locked} onClick={() => setTesting(tile)}>
+                                Vidéos…
+                              </Button>
+                              {player.rest_video && (
+                                <Button disabled={locked} onClick={() => void toggle(tile, current)}>
+                                  Écran noir
+                                </Button>
+                              )}
+                            </>
+                          ) : (
+                            <Button disabled={locked} onClick={() => void toggle(tile, current)}>
+                              {push ? "Déclencher" : current.state === "on" ? "Éteindre" : "Allumer"}
+                            </Button>
+                          )}
                           {richer && (
                             <Button variant="ghost" disabled={locked} onClick={() => setTesting(tile)}>
                               Réglages…

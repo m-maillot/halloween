@@ -182,6 +182,30 @@ class SwitchNode(ActionNode):
     state: Literal["on", "off"]
 
 
+class PlayerNode(ActionNode):
+    type: Literal["player"]
+    target: Slug
+    # `play` : joue `video` ; `rest` : revient à la vidéo de repos (écran noir).
+    action: Literal["play", "rest"]
+    video: Slug | None = None
+    loop: bool = False
+    # Attend la durée de la vidéo (renseignée sur le composant) avant le bloc suivant.
+    wait_for_end: bool = False
+
+    @model_validator(mode="after")
+    def _check_action(self) -> Self:
+        if self.action == "play":
+            if self.video is None:
+                raise ValueError("`video` est obligatoire pour `action: play`")
+            if self.loop and self.wait_for_end:
+                raise ValueError("une vidéo en boucle ne se termine pas : pas de `wait_for_end`")
+            if self.fire_and_forget and self.wait_for_end:
+                raise ValueError("`wait_for_end` et `fire_and_forget` s'excluent")
+        elif self.video is not None or self.loop or self.wait_for_end:
+            raise ValueError("`video`, `loop` et `wait_for_end` ne valent que pour `action: play`")
+        return self
+
+
 Node = Annotated[
     SequenceNode
     | ParallelNode
@@ -194,7 +218,8 @@ Node = Annotated[
     | LogNode
     | RelayNode
     | LightNode
-    | SwitchNode,
+    | SwitchNode
+    | PlayerNode,
     Field(discriminator="type"),
 ]
 

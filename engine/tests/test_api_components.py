@@ -51,7 +51,7 @@ def test_unknown_component_is_a_404_with_a_readable_message(client):
 
 def test_devices_catalogue(client):
     body = client.get("/api/devices").json()
-    assert [k for k in body] == ["relays", "buttons", "lights", "switches", "rest_state"]
+    assert [k for k in body] == ["relays", "buttons", "lights", "switches", "players", "rest_state"]
     assert len(body["relays"]) == 4 and len(body["lights"]) == 2
     assert body["lights"][0]["supports_transition"] is True
     assert body["rest_state"]["bandeau"]["state"] == "on"
@@ -407,8 +407,10 @@ def test_ha_entities_with_inferred_capabilities(client, fake_ha):
     assert lights[0]["capabilities"] == {"color": True, "brightness": True, "transition": True}
     assert lights[1]["capabilities"] == {"color": True, "brightness": True, "transition": False}
     everything = client.get("/api/ha/entities").json()
-    assert {e["domain"] for e in everything} == {"light", "switch"}
-    assert everything[-1]["capabilities"] is None  # un interrupteur n'a pas de capacités de lumière
+    assert {e["domain"] for e in everything} == {"light", "switch", "script"}
+    assert everything[-1]["capabilities"] is None  # ni un interrupteur ni un script
+    scripts = client.get("/api/ha/entities?domain=script").json()
+    assert [e["entity_id"] for e in scripts] == ["script.lire_video_shield"]
 
 
 def test_ha_entities_errors(client, fake_ha):

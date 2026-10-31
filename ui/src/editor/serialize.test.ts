@@ -1,7 +1,7 @@
 import * as Blockly from "blockly/core";
 import { beforeAll, beforeEach, expect, test } from "vitest";
 import type { Devices } from "../catalog/CatalogProvider";
-import { registerBlocks } from "./blocks";
+import { refreshComponentBlocks, registerBlocks } from "./blocks";
 import { setCatalog } from "./catalog";
 import { buildToolbox } from "./toolbox";
 import { loadProgram, orphanStacks, workspaceToProgram, type Program } from "./serialize";
@@ -19,6 +19,18 @@ const devices = {
     { id: "guirlande", name: "Guirlande", entity_id: "light.g", supports_color: false, supports_brightness: true, supports_transition: false },
   ],
   switches: [{ id: "prise", name: "Prise", entity_id: "switch.p" }],
+  players: [
+    {
+      id: "retro",
+      name: "Rétroprojecteur",
+      script: "script.lire_video_shield",
+      rest_video: "noir",
+      videos: [
+        { id: "noir", name: "Écran noir", source: "black_screen.mp4", duration_s: 10 },
+        { id: "fete", name: "Fête", source: "halloween_video.mp4", duration_s: 21 },
+      ],
+    },
+  ],
   rest_state: {},
 } as unknown as Devices;
 
@@ -366,4 +378,52 @@ test("la lumière réglée ne retient pas « tuned » : rechargée, elle est un 
   expect(block.getFieldValue("USE_BRIGHT")).toBe("TRUE");
   expect(block.getFieldValue("USE_COLOR")).toBe("FALSE"); // la guirlande ne gère pas la couleur
   expect(Blockly.serialization.blocks.save(block)?.extraState).toEqual({ target: "guirlande" });
+});
+
+const player = (id: string, extra: object) => ({ id, type: "player", target: "retro", ...extra });
+
+test("un lecteur : jouer une vidéo (boucle, attendre la fin, options) fait l'aller-retour sans perte", () => {
+  const children = [
+    player("v1", { action: "play", video: "fete" }),
+    player("v2", { action: "play", video: "fete", wait_for_end: true, on_error: "abort" }),
+    player("v3", { action: "play", video: "noir", loop: true, fire_and_forget: true }),
+    player("v4", { action: "rest" }),
+  ];
+  const source = program(children);
+  loadProgram(ws, source);
+  expect(ws.getBlockById("v1")?.type).toBe("hw_player");
+  expect(workspaceToProgram(ws, meta).scripts).toEqual(source.scripts);
+});
+
+test("une vidéo retirée du lecteur reste dans le programme (la validation du moteur la signale)", () => {
+  const source = program([player("v1", { action: "play", video: "disparue" })]);
+  loadProgram(ws, source);
+  expect(workspaceToProgram(ws, meta).scripts).toEqual(source.scripts);
+});
+
+test("le bloc « écran noir » de la palette part sur l'action rest, sans rien sauvegarder d'autre", () => {
+  const block = ws.newBlock("hw_player");
+  (block as unknown as { loadExtraState(s: object): void }).loadExtraState({ target: "retro", rest: true });
+  expect(block.getFieldValue("ACTION")).toBe("rest");
+  expect((block as unknown as { saveExtraState(): object }).saveExtraState()).toEqual({ target: "retro" });
+});
+
+test("un bloc « jouer » neuf propose une vraie vidéo plutôt que l'écran noir", () => {
+  const block = ws.newBlock("hw_player");
+  (block as unknown as { loadExtraState(s: object): void }).loadExtraState({ target: "retro" });
+  expect(block.getFieldValue("VIDEO")).toBe("fete");
+});
+
+test("une vidéo retirée du catalogue pendant l'édition n'est pas remplacée en silence par une autre", () => {
+  // Bloc posé depuis la palette (il n'a pas été chargé d'un programme) : « Fête » est sa vidéo par défaut.
+  const block = ws.newBlock("hw_player");
+  (block as unknown as { loadExtraState(s: object): void }).loadExtraState({ target: "retro" });
+  expect(block.getFieldValue("VIDEO")).toBe("fete");
+  const without = {
+    ...devices,
+    players: [{ ...devices.players[0], videos: devices.players[0].videos.filter((video) => video.id !== "fete") }],
+  } as unknown as Devices;
+  setCatalog(without);
+  refreshComponentBlocks(ws);
+  expect(block.getFieldValue("VIDEO")).toBe("fete");
 });

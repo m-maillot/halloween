@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import type { Devices } from "../catalog/CatalogProvider";
 import { buildToolbox } from "./toolbox";
 
-const base = { relays: [{ id: "orage" }], buttons: [], lights: [{ id: "bandeau" }], switches: [], rest_state: {} } as unknown as Devices;
+const base = { relays: [{ id: "orage" }], buttons: [], lights: [{ id: "bandeau" }], switches: [], players: [], rest_state: {} } as unknown as Devices;
 type Category = { name: string; contents: { type: string; extraState: { target: string } }[] };
 const categories = (devices: Devices | null) => (buildToolbox(devices).contents as unknown as Category[]);
 
@@ -52,4 +52,17 @@ test("un détecteur de mouvement a sa condition préréglée sur « mouvement »
   const conditions = categories(devices).find((c) => c.name === "Conditions")!.contents as unknown as { type: string; extraState?: { button: string }; fields?: object }[];
   const byButton = Object.fromEntries(conditions.filter((b) => b.type === "hw_cond_button").map((b) => [b.extraState!.button, b.fields ?? null]));
   expect(byButton).toEqual({ bp: null, pir: { EVENT: "motion" } });
+});
+
+test("chaque lecteur a un bloc pour jouer une vidéo et, s'il a une vidéo de repos, un bloc écran noir", () => {
+  const devices = {
+    ...base,
+    players: [
+      { id: "retro", rest_video: "noir" },
+      { id: "salon", rest_video: null },
+    ],
+  } as unknown as Devices;
+  const videos = categories(devices).find((c) => c.name === "Vidéos")!.contents as unknown as { type: string; extraState: object }[];
+  expect(videos.map((b) => b.extraState)).toEqual([{ target: "retro" }, { target: "retro", rest: true }, { target: "salon" }]);
+  expect(videos.every((b) => b.type === "hw_player")).toBe(true);
 });

@@ -1,4 +1,4 @@
-"""Composants : relais, boutons, lumières, interrupteurs (CRUD, test manuel, catalogue)."""
+"""Composants : relais, boutons, lumières, interrupteurs, lecteurs (CRUD, test, catalogue)."""
 
 import asyncio
 import re
@@ -17,6 +17,7 @@ from halloween.config.models import (
     Button,
     Component,
     Light,
+    Player,
     Relay,
     RelayMode,
     RestState,
@@ -31,6 +32,7 @@ from halloween.program.interpreter import ExecutionError
 from halloween.program.models import (
     ButtonCondition,
     LightNode,
+    PlayerNode,
     RelayIsCondition,
     RelayNode,
     SwitchNode,
@@ -59,6 +61,10 @@ class SwitchIn(Switch):
     id: Slug | None = None
 
 
+class PlayerIn(Player):
+    id: Slug | None = None
+
+
 class ImageUrl(BaseModel):
     image_url: str | None = (
         None  # None pour une icône intégrée (`builtin:`) : l'interface la résout
@@ -77,6 +83,9 @@ class LightOut(Light, ImageUrl): ...
 class SwitchOut(Switch, ImageUrl): ...
 
 
+class PlayerOut(Player, ImageUrl): ...
+
+
 class Result(BaseModel, Generic[C]):
     component: C
     # Avertissements de configuration et programmes devenus invalides par ce changement.
@@ -90,6 +99,7 @@ class Devices(BaseModel):
     buttons: list[ButtonOut]
     lights: list[LightOut]
     switches: list[SwitchOut]
+    players: list[PlayerOut]
     rest_state: dict[str, RestState]
 
 
@@ -98,6 +108,7 @@ KINDS: dict[str, tuple[type[Component], type[Component], type[Component], str]] 
     "buttons": (Button, ButtonIn, ButtonOut, "bouton"),
     "lights": (Light, LightIn, LightOut, "lumière"),
     "switches": (Switch, SwitchIn, SwitchOut, "interrupteur"),
+    "players": (Player, PlayerIn, PlayerOut, "lecteur"),
 }
 
 
@@ -156,6 +167,8 @@ def _strip_cosmetics(config: AppConfig) -> dict:
         for component in data[kind]:
             component.pop("name", None)
             component.pop("image", None)
+            for video in component.get("videos", []):
+                video.pop("name", None)
     return data
 
 
@@ -205,9 +218,13 @@ StopRuns = Annotated[
 
 def _register(kind: str) -> None:
     model, model_in, out_class, label = KINDS[kind]
-    singular = {"relays": "relay", "buttons": "button", "lights": "light", "switches": "switch"}[
-        kind
-    ]
+    singular = {
+        "relays": "relay",
+        "buttons": "button",
+        "lights": "light",
+        "switches": "switch",
+        "players": "player",
+    }[kind]
     path = f"/components/{kind}"
     # Nom propre dans l'OpenAPI (`RelayResult` plutôt que `Result_RelayOut_`).
     result_class = type(f"{singular.capitalize()}Result", (Result[out_class],), {})
@@ -303,6 +320,7 @@ async def get_devices(engine: EngineDep) -> Devices:
         buttons=[to_out("buttons", c) for c in config.buttons],
         lights=[to_out("lights", c) for c in config.lights],
         switches=[to_out("switches", c) for c in config.switches],
+        players=[to_out("players", c) for c in config.players],
         rest_state=config.rest_state,
     )
 
@@ -313,13 +331,16 @@ async def get_devices(engine: EngineDep) -> Devices:
 class ComponentTest(BaseModel):
     """Commande manuelle d'un composant, sans écrire de programme."""
 
-    action: Literal["on", "off", "trigger", "press"]
+    action: Literal["on", "off", "trigger", "press", "play", "rest"]
     # lumières (`on`)
     rgb_color: tuple[int, int, int] | None = None
     brightness: int | None = None
     transition: float | None = None
     # boutons (`press`)
     event: ButtonEventKind = "short"
+    # lecteurs (`play`)
+    video: str | None = None
+    loop: bool = False
 
 
 class TestResult(BaseModel):
@@ -336,12 +357,12 @@ class TestResult(BaseModel):
     responses={502: {"description": "L'appareil a refusé ou n'a pas répondu"}},
 )
 async def test_component(
-    kind: Literal["relays", "buttons", "lights", "switches"],
+    kind: Literal["relays", "buttons", "lights", "switches", "players"],
     component_id: str,
     body: ComponentTest,
     engine: EngineDep,
 ) -> TestResult:
-    """Commande un composant à la main : relais on/off/impulsion, lumière, interrupteur, appui."""
+    """Commande un composant à la main : relais, lumière, interrupteur, lecteur, appui."""
     component = next((c for c in getattr(engine.config, kind) if c.id == component_id), None)
     if component is None:
         raise api_error(404, f"composant inconnu : {component_id}")
@@ -386,6 +407,20 @@ async def test_component(
                 rgb_color=body.rgb_color,
                 brightness=body.brightness,
                 transition=body.transition,
+                on_error="abort",
+            )
+        elif kind == "players":
+            if body.action not in ("play", "rest"):
+                raise api_error(422, "action invalide pour un lecteur (play, rest)")
+            if body.action == "play" and not body.video:
+                raise api_error(422, "choisir la vidéo à jouer (`video`)")
+            node = PlayerNode(
+                id="test",
+                type="player",
+                target=component_id,
+                action=body.action,
+                video=body.video if body.action == "play" else None,
+                loop=body.loop if body.action == "play" else False,
                 on_error="abort",
             )
         else:

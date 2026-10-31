@@ -2,7 +2,7 @@
 // leur forme dépend de ce catalogue, mis à jour quand le moteur annonce un changement.
 import type { Devices } from "../catalog/CatalogProvider";
 
-export type ComponentKind = "relay" | "light" | "switch" | "button";
+export type ComponentKind = "relay" | "light" | "switch" | "player" | "button";
 
 let devices: Devices | null = null;
 let programs: { id: string; name: string }[] = [];
@@ -27,6 +27,9 @@ export function findLight(id: string) {
 }
 export function findSwitch(id: string) {
   return devices?.switches.find((c) => c.id === id);
+}
+export function findPlayer(id: string) {
+  return devices?.players.find((c) => c.id === id);
 }
 export function listButtons() {
   return devices?.buttons ?? [];

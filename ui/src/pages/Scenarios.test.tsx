@@ -15,7 +15,7 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/scenarios");
   calls = stubEngine(({ path, method }) => {
     if (path === "/api/status") return STATUS;
-    if (path === "/api/devices") return { relays: [], buttons: [], lights: [], switches: [], rest_state: {} };
+    if (path === "/api/devices") return { relays: [], buttons: [], lights: [], switches: [], players: [], rest_state: {} };
     if (path === "/api/programs" && method === "GET")
       return [{ id: "scene", name: "Scène", revision: 1, show: false, scripts: 2, valid: true }];
     if (method === "PUT") return { program: {}, warnings: [] };
@@ -55,7 +55,7 @@ function withPrograms(summaries: Json[]) {
   const store: Record<string, Json> = Object.fromEntries(summaries.map((s) => [s.id as string, full(s.id as string, { name: s.name, show: s.show, show_order: s.show_order })]));
   calls = stubEngine(({ path, method, body }) => {
     if (path === "/api/status") return STATUS;
-    if (path === "/api/devices") return { relays: [], buttons: [], lights: [], switches: [], rest_state: {} };
+    if (path === "/api/devices") return { relays: [], buttons: [], lights: [], switches: [], players: [], rest_state: {} };
     if (path === "/api/programs" && method === "GET") return Object.values(store).map((p) => ({ id: p.id, name: p.name, revision: p.revision, show: p.show, show_order: p.show_order, scripts: 1, valid: true }));
     const match = /^\/api\/programs\/(.+)$/.exec(path);
     if (match && method === "GET") return store[match[1]];

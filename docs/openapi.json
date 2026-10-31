@@ -444,6 +444,7 @@
                 "light": "#/components/schemas/LightNode",
                 "log": "#/components/schemas/LogNode",
                 "parallel": "#/components/schemas/ParallelNode",
+                "player": "#/components/schemas/PlayerNode",
                 "random_choice": "#/components/schemas/RandomChoiceNode",
                 "relay": "#/components/schemas/RelayNode",
                 "repeat": "#/components/schemas/RepeatNode",
@@ -490,6 +491,9 @@
               },
               {
                 "$ref": "#/components/schemas/SwitchNode"
+              },
+              {
+                "$ref": "#/components/schemas/PlayerNode"
               }
             ],
             "title": "Child"
@@ -521,7 +525,7 @@
         "type": "object"
       },
       "ComponentChangedEvent": {
-        "description": "Un composant a changé d'état (`kind` relay / light / switch), ou le catalogue a été modifié\n(`kind: \"catalog\"`, sans `component_id`) : l'interface relit alors `/api/devices`.",
+        "description": "Un composant a changé d'état (`kind` relay / light / switch / player), ou le catalogue a été\nmodifié (`kind: \"catalog\"`, sans `component_id`) : l'interface relit alors `/api/devices`.",
         "properties": {
           "component_id": {
             "anyOf": [
@@ -546,6 +550,7 @@
               "relay",
               "light",
               "switch",
+              "player",
               "catalog"
             ],
             "title": "Kind",
@@ -592,7 +597,9 @@
               "on",
               "off",
               "trigger",
-              "press"
+              "press",
+              "play",
+              "rest"
             ],
             "title": "Action",
             "type": "string"
@@ -618,6 +625,11 @@
             ],
             "title": "Event",
             "type": "string"
+          },
+          "loop": {
+            "default": false,
+            "title": "Loop",
+            "type": "boolean"
           },
           "rgb_color": {
             "anyOf": [
@@ -653,6 +665,17 @@
               }
             ],
             "title": "Transition"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video"
           }
         },
         "required": [
@@ -676,6 +699,13 @@
               "$ref": "#/components/schemas/LightOut"
             },
             "title": "Lights",
+            "type": "array"
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/PlayerOut"
+            },
+            "title": "Players",
             "type": "array"
           },
           "relays": {
@@ -705,6 +735,7 @@
           "buttons",
           "lights",
           "switches",
+          "players",
           "rest_state"
         ],
         "title": "Devices",
@@ -1164,6 +1195,7 @@
                     "light": "#/components/schemas/LightNode",
                     "log": "#/components/schemas/LogNode",
                     "parallel": "#/components/schemas/ParallelNode",
+                    "player": "#/components/schemas/PlayerNode",
                     "random_choice": "#/components/schemas/RandomChoiceNode",
                     "relay": "#/components/schemas/RelayNode",
                     "repeat": "#/components/schemas/RepeatNode",
@@ -1210,6 +1242,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/SwitchNode"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlayerNode"
                   }
                 ]
               },
@@ -1232,6 +1267,7 @@
                 "light": "#/components/schemas/LightNode",
                 "log": "#/components/schemas/LogNode",
                 "parallel": "#/components/schemas/ParallelNode",
+                "player": "#/components/schemas/PlayerNode",
                 "random_choice": "#/components/schemas/RandomChoiceNode",
                 "relay": "#/components/schemas/RelayNode",
                 "repeat": "#/components/schemas/RepeatNode",
@@ -1278,6 +1314,9 @@
               },
               {
                 "$ref": "#/components/schemas/SwitchNode"
+              },
+              {
+                "$ref": "#/components/schemas/PlayerNode"
               }
             ],
             "title": "Then"
@@ -1818,6 +1857,7 @@
                   "light": "#/components/schemas/LightNode",
                   "log": "#/components/schemas/LogNode",
                   "parallel": "#/components/schemas/ParallelNode",
+                  "player": "#/components/schemas/PlayerNode",
                   "random_choice": "#/components/schemas/RandomChoiceNode",
                   "relay": "#/components/schemas/RelayNode",
                   "repeat": "#/components/schemas/RepeatNode",
@@ -1864,6 +1904,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/SwitchNode"
+                },
+                {
+                  "$ref": "#/components/schemas/PlayerNode"
                 }
               ]
             },
@@ -1896,6 +1939,235 @@
           "children"
         ],
         "title": "ParallelNode",
+        "type": "object"
+      },
+      "PlayerIn": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rest_video": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Video"
+          },
+          "script": {
+            "pattern": "^script\\.[a-z0-9_]+$",
+            "title": "Script",
+            "type": "string"
+          },
+          "videos": {
+            "items": {
+              "$ref": "#/components/schemas/Video"
+            },
+            "minItems": 1,
+            "title": "Videos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "script",
+          "videos"
+        ],
+        "title": "PlayerIn",
+        "type": "object"
+      },
+      "PlayerNode": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "play",
+              "rest"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "fire_and_forget": {
+            "default": false,
+            "title": "Fire And Forget",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "loop": {
+            "default": false,
+            "title": "Loop",
+            "type": "boolean"
+          },
+          "on_error": {
+            "default": "continue",
+            "enum": [
+              "continue",
+              "abort"
+            ],
+            "title": "On Error",
+            "type": "string"
+          },
+          "target": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Target",
+            "type": "string"
+          },
+          "type": {
+            "const": "player",
+            "title": "Type",
+            "type": "string"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video"
+          },
+          "wait_for_end": {
+            "default": false,
+            "title": "Wait For End",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "target",
+          "action"
+        ],
+        "title": "PlayerNode",
+        "type": "object"
+      },
+      "PlayerOut": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rest_video": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Video"
+          },
+          "script": {
+            "pattern": "^script\\.[a-z0-9_]+$",
+            "title": "Script",
+            "type": "string"
+          },
+          "videos": {
+            "items": {
+              "$ref": "#/components/schemas/Video"
+            },
+            "minItems": 1,
+            "title": "Videos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "script",
+          "videos"
+        ],
+        "title": "PlayerOut",
+        "type": "object"
+      },
+      "PlayerResult": {
+        "properties": {
+          "component": {
+            "$ref": "#/components/schemas/PlayerOut"
+          },
+          "issues": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/IssueOut"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "component"
+        ],
+        "title": "PlayerResult",
         "type": "object"
       },
       "ProblemOut": {
@@ -2525,6 +2797,7 @@
                 "light": "#/components/schemas/LightNode",
                 "log": "#/components/schemas/LogNode",
                 "parallel": "#/components/schemas/ParallelNode",
+                "player": "#/components/schemas/PlayerNode",
                 "random_choice": "#/components/schemas/RandomChoiceNode",
                 "relay": "#/components/schemas/RelayNode",
                 "repeat": "#/components/schemas/RepeatNode",
@@ -2571,6 +2844,9 @@
               },
               {
                 "$ref": "#/components/schemas/SwitchNode"
+              },
+              {
+                "$ref": "#/components/schemas/PlayerNode"
               }
             ],
             "title": "Child"
@@ -2966,6 +3242,7 @@
                 "light": "#/components/schemas/LightNode",
                 "log": "#/components/schemas/LogNode",
                 "parallel": "#/components/schemas/ParallelNode",
+                "player": "#/components/schemas/PlayerNode",
                 "random_choice": "#/components/schemas/RandomChoiceNode",
                 "relay": "#/components/schemas/RelayNode",
                 "repeat": "#/components/schemas/RepeatNode",
@@ -3012,6 +3289,9 @@
               },
               {
                 "$ref": "#/components/schemas/SwitchNode"
+              },
+              {
+                "$ref": "#/components/schemas/PlayerNode"
               }
             ],
             "title": "Root"
@@ -3036,6 +3316,7 @@
                   "light": "#/components/schemas/LightNode",
                   "log": "#/components/schemas/LogNode",
                   "parallel": "#/components/schemas/ParallelNode",
+                  "player": "#/components/schemas/PlayerNode",
                   "random_choice": "#/components/schemas/RandomChoiceNode",
                   "relay": "#/components/schemas/RelayNode",
                   "repeat": "#/components/schemas/RepeatNode",
@@ -3082,6 +3363,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/SwitchNode"
+                },
+                {
+                  "$ref": "#/components/schemas/PlayerNode"
                 }
               ]
             },
@@ -3699,6 +3983,48 @@
           "issues"
         ],
         "title": "ValidationReport",
+        "type": "object"
+      },
+      "Video": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_s": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 86400.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source"
+        ],
+        "title": "Video",
         "type": "object"
       },
       "WaitNode": {
@@ -4364,6 +4690,273 @@
         ]
       }
     },
+    "/api/components/players": {
+      "get": {
+        "operationId": "list_players",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlayerOut"
+                  },
+                  "title": "Response List Players",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Components",
+        "tags": [
+          "composants"
+        ]
+      },
+      "post": {
+        "operationId": "create_player",
+        "parameters": [
+          {
+            "description": "Autorise l'arrêt des scénarios en cours si le changement l'exige.",
+            "in": "query",
+            "name": "stop_runs",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Autorise l'arrêt des scénarios en cours si le changement l'exige.",
+              "title": "Stop Runs",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Component",
+        "tags": [
+          "composants"
+        ]
+      }
+    },
+    "/api/components/players/{component_id}": {
+      "delete": {
+        "operationId": "delete_player",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component_id",
+            "required": true,
+            "schema": {
+              "title": "Component Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Autorise l'arrêt des scénarios en cours si le changement l'exige.",
+            "in": "query",
+            "name": "stop_runs",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Autorise l'arrêt des scénarios en cours si le changement l'exige.",
+              "title": "Stop Runs",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Component",
+        "tags": [
+          "composants"
+        ]
+      },
+      "get": {
+        "operationId": "get_player",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component_id",
+            "required": true,
+            "schema": {
+              "title": "Component Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Component",
+        "tags": [
+          "composants"
+        ]
+      },
+      "put": {
+        "operationId": "update_player",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component_id",
+            "required": true,
+            "schema": {
+              "title": "Component Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Autorise l'arrêt des scénarios en cours si le changement l'exige.",
+            "in": "query",
+            "name": "stop_runs",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Autorise l'arrêt des scénarios en cours si le changement l'exige.",
+              "title": "Stop Runs",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Jeton d'API manquant ou invalide"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Component",
+        "tags": [
+          "composants"
+        ]
+      }
+    },
     "/api/components/relays": {
       "get": {
         "operationId": "list_relays",
@@ -4900,7 +5493,7 @@
     },
     "/api/components/{kind}/{component_id}/test": {
       "post": {
-        "description": "Commande un composant à la main : relais on/off/impulsion, lumière, interrupteur, appui.",
+        "description": "Commande un composant à la main : relais, lumière, interrupteur, lecteur, appui.",
         "operationId": "test_component",
         "parameters": [
           {
@@ -4912,7 +5505,8 @@
                 "relays",
                 "buttons",
                 "lights",
-                "switches"
+                "switches",
+                "players"
               ],
               "title": "Kind",
               "type": "string"
@@ -5228,7 +5822,7 @@
     },
     "/api/ha/entities": {
       "get": {
-        "description": "Entités de Home Assistant, à proposer dans les formulaires de lumières et d'interrupteurs.",
+        "description": "Entités de Home Assistant à proposer dans les formulaires (lumières, interrupteurs…).",
         "operationId": "list_ha_entities",
         "parameters": [
           {
@@ -5240,7 +5834,8 @@
                 {
                   "enum": [
                     "light",
-                    "switch"
+                    "switch",
+                    "script"
                   ],
                   "type": "string"
                 },

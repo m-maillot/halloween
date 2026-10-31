@@ -95,7 +95,8 @@ class FakeHAClient(HAClient):
         self.fail_entities: dict[str, Exception] = {}
 
     async def call_service(self, domain: str, service: str, data: dict[str, Any]) -> None:
-        entity = data.get("entity_id", "")
+        # Un script n'a pas d'`entity_id` dans ses champs : on le désigne par son nom.
+        entity = data.get("entity_id") or f"{domain}.{service}"
         error = self.fail_entities.get(entity) or self.fail_with
         if error is not None:
             raise error if isinstance(error, HAError) else HAError(str(error))

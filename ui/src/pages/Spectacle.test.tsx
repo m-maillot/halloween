@@ -32,7 +32,7 @@ beforeEach(() => {
     if (custom !== undefined) return custom;
     const { path, method } = call;
     if (path === "/api/status") return status;
-    if (path === "/api/devices") return { relays: [], buttons: [{ id: "bp", name: "Bouton d'entrée", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 400 }], lights: [], switches: [], rest_state: {} };
+    if (path === "/api/devices") return { relays: [], buttons: [{ id: "bp", name: "Bouton d'entrée", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 400 }], lights: [], switches: [], players: [], rest_state: {} };
     if (path === "/api/programs") return programs;
     if (method === "POST" && path === "/api/runs") return { run_id: "r1", program_id: "a", state: "running" };
     if (method === "POST") return { stopped: 1 };

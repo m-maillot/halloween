@@ -16,7 +16,7 @@ const devices = {
   relays: [{ id: "orage", name: "Orage", pin: 22, mode: "latched", active_low: false }],
   buttons: [],
   lights: [{ id: "bandeau", name: "Bandeau", entity_id: "light.bandeau", supports_color: true, supports_brightness: true, supports_transition: true }],
-  switches: [{ id: "guirlande", name: "Guirlande", entity_id: "switch.guirlande" }],
+  switches: [{ id: "guirlande", name: "Guirlande", entity_id: "switch.guirlande" }], players: [],
   rest_state: {},
 };
 

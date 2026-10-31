@@ -2,7 +2,7 @@
 // soit affiché ou non : les tests tournent sans navigateur.
 import * as Blockly from "blockly/core";
 import type { components } from "../api/schema";
-import { refreshVisibility } from "./blocks";
+import { refreshPlayerVisibility, refreshVisibility } from "./blocks";
 
 export type Program = components["schemas"]["Program"];
 export type Node = { id: string; type: string; [key: string]: unknown };
@@ -69,6 +69,14 @@ function leaf(block: Blockly.Block): Node {
     }
     case "hw_switch":
       return withOptions(block, { id, type: "switch", target: targetOf(block), state: block.getFieldValue("STATE") });
+    case "hw_player": {
+      const target = targetOf(block);
+      if (block.getFieldValue("ACTION") === "rest") return withOptions(block, { id, type: "player", target, action: "rest" });
+      const node: Node = { id, type: "player", target, action: "play", video: block.getFieldValue("VIDEO") };
+      if (checked(block, "LOOP")) node.loop = true;
+      if (checked(block, "WAIT_END")) node.wait_for_end = true;
+      return withOptions(block, node);
+    }
     default:
       throw new Error(`bloc inconnu : ${block.type}`);
   }
@@ -283,6 +291,18 @@ function nodeToBlock(workspace: Blockly.Workspace, node: Node): Blockly.Block {
         }
         refreshVisibility(block); // les paramètres posés doivent être visibles tout de suite
       }
+      return block;
+    }
+    case "player": {
+      const block = create(workspace, "hw_player", node.id, node.video ? { target: node.target, video: node.video } : { target: node.target });
+      const set = (name: string, value: string) => block.getField(name) && block.setFieldValue(value, name);
+      set("ACTION", node.action as string);
+      if (node.video) set("VIDEO", node.video as string);
+      if (node.loop) set("LOOP", "TRUE");
+      if (node.wait_for_end) set("WAIT_END", "TRUE");
+      if (node.fire_and_forget) set("FF", "TRUE");
+      if (node.on_error === "abort") set("ONERR", "abort");
+      refreshPlayerVisibility(block);
       return block;
     }
     case "parallel": {

@@ -12,7 +12,7 @@ const devices = {
   ],
   buttons: [{ id: "bouton_principal", name: "Bouton principal", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 300 }],
   lights: [{ id: "bandeau", name: "Bandeau", entity_id: "light.bandeau", supports_color: true, supports_brightness: true, supports_transition: false }],
-  switches: [],
+  switches: [], players: [],
   rest_state: {},
 };
 let current: typeof devices;

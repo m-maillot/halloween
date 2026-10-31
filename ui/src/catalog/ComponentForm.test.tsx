@@ -6,7 +6,7 @@ import { setToken } from "../api/token";
 import { FakeWebSocket, STATUS, stubEngine, WS, type Call } from "../test-engine";
 
 type Json = Record<string, unknown>;
-let devices: { relays: Json[]; buttons: Json[]; lights: Json[]; switches: Json[]; rest_state: Json };
+let devices: { relays: Json[]; buttons: Json[]; lights: Json[]; switches: Json[]; players: Json[]; rest_state: Json };
 let calls: Call[];
 let respond: (call: Call) => Response | object | undefined;
 let entities: Response | object;
@@ -20,7 +20,7 @@ beforeEach(() => {
     relays: [{ id: "orage", name: "Orage", pin: 22, mode: "latched", active_low: false, image: null, image_url: null }],
     buttons: [{ id: "bp", name: "Bouton principal", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 400 }],
     lights: [],
-    switches: [],
+    switches: [], players: [],
     rest_state: {},
   };
   entities = [
@@ -328,4 +328,83 @@ test("un détecteur existant : on écoute un mouvement, et le type ne se change 
   await user.click(screen.getByRole("button", { name: "Écouter un mouvement" }));
   act(() => FakeWebSocket.emit({ type: "button_event", button_id: "pir", event: "motion" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Mouvement reçu.");
+});
+
+const RETRO = {
+  id: "retro",
+  name: "Rétroprojecteur",
+  image: null,
+  image_url: null,
+  script: "script.lire_video_shield",
+  rest_video: "noir",
+  videos: [
+    { id: "noir", name: "Écran noir", source: "black_screen.mp4", duration_s: 10 },
+    { id: "fete", name: "Fête", source: "halloween_video.mp4", duration_s: 21 },
+  ],
+};
+
+test("créer un lecteur vidéo : script en liste, vidéos saisies, vidéo de repos choisie avant l'enregistrement", async () => {
+  entities = [{ entity_id: "script.lire_video_shield", name: "Lire une vidéo", state: "off", domain: "script", capabilities: null }];
+  respond = ({ method, path }) =>
+    method === "POST" && path === "/api/components/players" ? Response.json({ component: { id: "ecran" }, issues: [] }, { status: 201 }) : undefined;
+  const user = await openApp();
+  await user.click(screen.getByRole("tab", { name: /Vidéos/ }));
+  await user.click(screen.getByRole("button", { name: "Ajouter un lecteur vidéo" }));
+  const dialog = screen.getByRole("dialog");
+  await waitFor(() => expect(within(dialog).getByRole("option", { name: /Lire une vidéo/ })).toBeInTheDocument());
+  await user.type(within(dialog).getByLabelText("Nom", { exact: true }), "Écran du salon");
+  await user.selectOptions(within(dialog).getByLabelText("Script Home Assistant"), "script.lire_video_shield");
+  await user.click(within(dialog).getByRole("button", { name: "Ajouter une vidéo" }));
+  await user.type(within(dialog).getByLabelText("Nom de la vidéo 1"), "Écran noir");
+  await user.type(within(dialog).getByLabelText("Fichier de la vidéo 1"), "black_screen.mp4");
+  await user.click(within(dialog).getByRole("button", { name: "Ajouter une vidéo" }));
+  await user.type(within(dialog).getByLabelText("Nom de la vidéo 2"), "Fête");
+  await user.type(within(dialog).getByLabelText("Fichier de la vidéo 2"), "halloween_video.mp4");
+  await user.type(within(dialog).getByLabelText("Durée de la vidéo 2 (s)"), "21");
+  await user.selectOptions(within(dialog).getByLabelText("Vidéo de repos (écran noir)"), "Écran noir");
+  await user.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(calls.find((c) => c.method === "POST" && c.path === "/api/components/players")!.body).toMatchObject({
+    name: "Écran du salon",
+    script: "script.lire_video_shield",
+    rest_video: "ecran-noir",
+    videos: [
+      { id: "ecran-noir", name: "Écran noir", source: "black_screen.mp4", duration_s: null },
+      { id: "fete", name: "Fête", source: "halloween_video.mp4", duration_s: 21 },
+    ],
+  });
+});
+
+test("retirer la vidéo de repos vide le choix ; les identifiants déjà attribués ne changent pas", async () => {
+  devices.players.push(RETRO);
+  respond = ({ method, path }) =>
+    method === "PUT" && path === "/api/components/players/retro" ? Response.json({ component: { id: "retro" }, issues: [] }) : undefined;
+  const user = await openApp();
+  await user.click(screen.getByRole("tab", { name: /Vidéos/ }));
+  await user.click(screen.getByLabelText("Rétroprojecteur"));
+  const dialog = screen.getByRole("dialog");
+  await user.clear(within(dialog).getByLabelText("Nom de la vidéo 2"));
+  await user.type(within(dialog).getByLabelText("Nom de la vidéo 2"), "Grande fête");
+  await user.click(within(dialog).getByRole("button", { name: "Retirer la vidéo 1" }));
+  expect(within(dialog).getByLabelText("Vidéo de repos (écran noir)")).toHaveValue("");
+  await user.click(within(dialog).getByRole("button", { name: "Enregistrer" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(calls.find((c) => c.method === "PUT" && c.path === "/api/components/players/retro")!.body).toMatchObject({
+    rest_video: null,
+    videos: [{ id: "fete", name: "Grande fête" }], // l'identifiant ne suit pas le nom
+  });
+});
+
+test("un lecteur existant : jouer une vidéo en boucle, puis revenir à l'écran noir", async () => {
+  devices.players.push(RETRO);
+  const user = await openApp();
+  await user.click(screen.getByRole("tab", { name: /Vidéos/ }));
+  await user.click(screen.getByLabelText("Rétroprojecteur"));
+  const test = within(screen.getByRole("region", { name: "Test manuel" }));
+  await user.selectOptions(test.getByLabelText("Vidéo"), "Fête");
+  await user.click(test.getByLabelText("En boucle"));
+  await user.click(test.getByRole("button", { name: "Jouer" }));
+  await user.click(test.getByRole("button", { name: "Écran noir" }));
+  const bodies = calls.filter((c) => c.path === "/api/components/players/retro/test").map((c) => c.body);
+  expect(bodies).toEqual([{ action: "play", video: "fete", loop: true }, { action: "rest" }]);
 });
