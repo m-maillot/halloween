@@ -279,7 +279,26 @@ class Engine:
             ComponentChangedEvent(kind="relay", component_id=relay_id, state="on" if on else "off")
         )
 
+    def _on_player_change(self, service: str, data: dict) -> None:
+        """Un script de lecteur a été appelé : `state` vaut `on` sauf pour la vidéo de repos."""
+        for player in self.config.players:
+            if player.script != f"script.{service}":
+                continue
+            video = next((v for v in player.videos if v.media == data.get("video")), None)
+            self.hub.publish(
+                ComponentChangedEvent(
+                    kind="player",
+                    component_id=player.id,
+                    state="off" if video is None or video.id == player.rest_video else "on",
+                    details={"video": video.id if video else None, "loop": data.get("boucle")},
+                )
+            )
+            return
+
     def _on_ha_change(self, domain: str, service: str, data: dict) -> None:
+        if domain == "script":
+            self._on_player_change(service, data)
+            return
         components = {
             **{light.entity_id: ("light", light.id) for light in self.config.lights},
             **{switch.entity_id: ("switch", switch.id) for switch in self.config.switches},

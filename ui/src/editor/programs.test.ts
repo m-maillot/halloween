@@ -15,7 +15,7 @@ const config = JSON.parse(readFileSync(resolve(root, "deploy/config.example.json
 
 beforeAll(() => {
   registerBlocks();
-  setCatalog({ relays: config.relays, buttons: config.buttons, lights: config.lights, switches: config.switches ?? [], rest_state: {} } as unknown as Devices);
+  setCatalog({ relays: config.relays, buttons: config.buttons, lights: config.lights, switches: config.switches ?? [], players: [], rest_state: {} } as unknown as Devices);
   setPrograms([{ id: "scenario-principal", name: "Scénario principal" }, { id: "ambiance", name: "Ambiance" }]);
 });
 

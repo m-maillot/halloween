@@ -1,12 +1,12 @@
 import * as Blockly from "blockly/core";
 import { FieldColour } from "@blockly/field-colour";
 import { Settings } from "lucide-react";
-import { findLight, findRelay, findSwitch } from "./catalog";
+import { findLight, findPlayer, findRelay, findSwitch } from "./catalog";
 import { registerControlBlocks } from "./controlBlocks";
 import { iconSource, lucideSource } from "./icons";
 
-export const HUE = { control: 36, relay: 0, light: 48, switch: 200, button: 290, misc: 230 };
-const KIND_OF = { relay: "relays", light: "lights", switch: "switches" } as const;
+export const HUE = { control: 36, relay: 0, light: 48, switch: 200, player: 160, button: 290, misc: 230 };
+const KIND_OF = { relay: "relays", light: "lights", switch: "switches", player: "players" } as const;
 const NOT_FOUND_COLOUR = "#a02626";
 
 const STATE_OPTIONS: [string, string][] = [
@@ -27,15 +27,21 @@ export interface ComponentState {
   on_error?: "continue" | "abort";
   /** Bloc de la palette « lumière réglée » : couleur, luminosité et transition posées d'emblée (jamais sauvegardé). */
   tuned?: boolean;
+  /** Bloc de la palette « écran noir » d'un lecteur : action `rest` d'emblée (jamais sauvegardé). */
+  rest?: boolean;
+  /** Vidéo d'un lecteur dont le catalogue ne parle plus : gardée pour que le programme ne la perde pas. */
+  video?: string;
 }
 
-export type ComponentKindName = "relay" | "light" | "switch";
+export type ComponentKindName = "relay" | "light" | "switch" | "player";
 
 export interface ComponentBlock extends Blockly.Block {
   kind_: ComponentKindName;
   target_: string;
   fallbackTrigger_?: boolean;
   tunedPending_?: boolean;
+  restPending_?: boolean;
+  fallbackVideo_?: string;
   optionsOpen_: boolean;
   updateShape_(): void;
   toggleOptions_(): void;
@@ -45,7 +51,92 @@ export interface ComponentBlock extends Blockly.Block {
 const FIELDS = ["STATE", "WAIT_END", "USE_COLOR", "COLOR", "USE_BRIGHT", "BRIGHT", "USE_TRANS", "TRANS", "FF", "ONERR"];
 
 function lookup(block: ComponentBlock) {
-  return block.kind_ === "relay" ? findRelay(block.target_) : block.kind_ === "light" ? findLight(block.target_) : findSwitch(block.target_);
+  switch (block.kind_) {
+    case "relay":
+      return findRelay(block.target_);
+    case "light":
+      return findLight(block.target_);
+    case "player":
+      return findPlayer(block.target_);
+    default:
+      return findSwitch(block.target_);
+  }
+}
+
+const PLAYER_ACTIONS: [string, string][] = [
+  ["jouer", "play"],
+  ["revenir à l'écran noir", "rest"],
+];
+const PLAYER_FIELDS = ["ACTION", "VIDEO", "LOOP", "WAIT_END", "FF", "ONERR"];
+
+/** Vidéo et boucle ne se montrent que pour « jouer » ; les options, quand l'engrenage est ouvert. */
+export function refreshPlayerVisibility(block: Blockly.Block): void {
+  if (block.isDeadOrDying()) return;
+  block.getInput("PLAY")?.setVisible(block.getFieldValue("ACTION") === "play");
+  block.getInput("OPTS")?.setVisible((block as ComponentBlock).optionsOpen_);
+  if (block instanceof Blockly.BlockSvg) block.queueRender();
+}
+
+function videoOptions(block: ComponentBlock): [string, string][] {
+  const player = findPlayer(block.target_);
+  const options: [string, string][] = (player?.videos ?? []).map((video) => [video.name, video.id]);
+  // Une vidéo retirée du lecteur reste choisie : la validation du moteur la signale sur ce bloc.
+  if (block.fallbackVideo_ && !options.some(([, id]) => id === block.fallbackVideo_)) {
+    options.push([`introuvable : ${block.fallbackVideo_}`, block.fallbackVideo_]);
+  }
+  return options.length ? options : [["(aucune vidéo)", ""]];
+}
+
+function shapePlayer(this: ComponentBlock) {
+  const keep: Record<string, unknown> = {};
+  for (const name of PLAYER_FIELDS) if (this.getField(name)) keep[name] = this.getFieldValue(name);
+  for (const name of ["HEAD", "PLAY", "OPTS"]) if (this.getInput(name)) this.removeInput(name);
+
+  const found = findPlayer(this.target_);
+  this.setColour(found ? HUE.player : NOT_FOUND_COLOUR);
+  this.setWarningText(found ? null : `Composant introuvable : ${this.target_}`);
+
+  const head = this.appendDummyInput("HEAD");
+  head.appendField(new Blockly.FieldImage(lucideSource(Settings, 16), 16, 16, "Options", () => this.toggleOptions_()));
+  if (found) {
+    head.appendField(new Blockly.FieldImage(iconSource(found.image, found.image_url, KIND_OF.player), 24, 24, found.name));
+    head.appendField(found.name);
+  } else {
+    head.appendField(`introuvable : ${this.target_}`);
+  }
+  head.appendField(
+    new Blockly.FieldDropdown(PLAYER_ACTIONS, (value) => {
+      setTimeout(() => refreshPlayerVisibility(this), 0); // le validateur s'exécute avant l'écriture de la valeur
+      return value;
+    }),
+    "ACTION",
+  );
+
+  this.appendDummyInput("PLAY")
+    .appendField(new Blockly.FieldDropdown(() => videoOptions(this)), "VIDEO")
+    .appendField(new Blockly.FieldCheckbox(false), "LOOP")
+    .appendField("en boucle")
+    .appendField(new Blockly.FieldCheckbox(false), "WAIT_END")
+    .appendField("attendre la fin");
+
+  const options = this.appendDummyInput("OPTS");
+  options.appendField(new Blockly.FieldCheckbox(false), "FF").appendField("sans attendre Home Assistant");
+  options.appendField("en cas d'erreur :").appendField(new Blockly.FieldDropdown(ERROR_OPTIONS), "ONERR");
+
+  if (this.restPending_) {
+    // Posé avant le premier rendu : la hauteur du bloc est alors juste dans la palette.
+    this.restPending_ = false;
+    this.setFieldValue("rest", "ACTION");
+  }
+  if (!this.fallbackVideo_) {
+    // Un bloc neuf propose d'abord une vraie vidéo, pas l'écran noir (qui a son propre bloc).
+    const first = found?.videos.find((video) => video.id !== found.rest_video) ?? found?.videos[0];
+    if (first) this.setFieldValue(first.id, "VIDEO");
+  }
+  for (const [name, value] of Object.entries(keep)) {
+    if (this.getField(name)) this.setFieldValue(value as string, name);
+  }
+  refreshPlayerVisibility(this);
 }
 
 const PARAM_ROWS: [row: string, use: string][] = [
@@ -148,19 +239,23 @@ function defineComponentBlock(type: string, kind: ComponentKindName): void {
     // Seule l'identité du composant est dans l'état supplémentaire : les valeurs des champs sont
     // sauvegardées par Blockly lui-même (copier / coller, annuler) et par notre sérialiseur.
     saveExtraState(this: ComponentBlock): ComponentState {
+      if (this.fallbackVideo_) return { target: this.target_, video: this.fallbackVideo_ };
       return this.fallbackTrigger_ ? { target: this.target_, trigger: true } : { target: this.target_ };
     },
     loadExtraState(this: ComponentBlock, state: ComponentState) {
       this.target_ = state.target;
       this.fallbackTrigger_ = state.trigger;
       this.tunedPending_ = state.tuned;
+      this.restPending_ = state.rest;
+      this.fallbackVideo_ = state.video;
       this.updateShape_();
     },
     toggleOptions_(this: ComponentBlock) {
       this.optionsOpen_ = !this.optionsOpen_;
-      refreshVisibility(this);
+      if (kind === "player") refreshPlayerVisibility(this);
+      else refreshVisibility(this);
     },
-    updateShape_: shape,
+    updateShape_: kind === "player" ? shapePlayer : shape,
   };
 }
 
@@ -184,6 +279,7 @@ export function registerBlocks(): void {
   defineComponentBlock("hw_relay", "relay");
   defineComponentBlock("hw_light", "light");
   defineComponentBlock("hw_switch", "switch");
+  defineComponentBlock("hw_player", "player");
 }
 
 /** Recalcule la forme des blocs de composants (catalogue modifié). */

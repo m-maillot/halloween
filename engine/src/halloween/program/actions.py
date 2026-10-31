@@ -1,4 +1,5 @@
-"""Exécution des blocs d'action : relais (GPIO), lumières et interrupteurs (Home Assistant)."""
+"""Exécution des blocs d'action : relais (GPIO), lumières, interrupteurs et lecteurs de vidéos
+(Home Assistant)."""
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ from halloween.config.models import AppConfig, Relay, RelayMode
 from halloween.drivers.base import HAClient, RelayDriver
 from halloween.log import get_logger
 from halloween.program.interpreter import ActionRunner, ExecutionError
-from halloween.program.models import ActionNode, LightNode, RelayNode, SwitchNode
+from halloween.program.models import ActionNode, LightNode, PlayerNode, RelayNode, SwitchNode
 
 log = get_logger("actions")
 
@@ -54,7 +55,7 @@ class DeviceActions(ActionRunner):
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def execute(self, node: RelayNode | LightNode | SwitchNode) -> None:
+    async def execute(self, node: RelayNode | LightNode | SwitchNode | PlayerNode) -> None:
         try:
             if isinstance(node, RelayNode):
                 await self._relay(node)
@@ -122,7 +123,7 @@ class DeviceActions(ActionRunner):
 
     # ------------------------------------------------------------------ Home Assistant
 
-    def _spawn(self, node: LightNode | SwitchNode) -> None:
+    def _spawn(self, node: LightNode | SwitchNode | PlayerNode) -> None:
         async def background() -> None:
             try:
                 await self._home_assistant(node)
@@ -133,8 +134,32 @@ class DeviceActions(ActionRunner):
         self._background.add(task)
         task.add_done_callback(self._background.discard)
 
-    async def _home_assistant(self, node: LightNode | SwitchNode) -> None:
-        if isinstance(node, LightNode):
+    async def _player(self, node: PlayerNode) -> None:
+        player = next((x for x in self._config.players if x.id == node.target), None)
+        if player is None:
+            raise ExecutionError(f"lecteur inconnu : {node.target}")
+        if node.action == "rest":
+            video = player.video(player.rest_video) if player.rest_video else None
+            if video is None:
+                raise ExecutionError(f"`{player.id}` n'a pas de vidéo de repos")
+            loop = True
+        else:
+            video = player.video(node.video or "")
+            if video is None:
+                raise ExecutionError(f"vidéo inconnue sur `{player.id}` : {node.video}")
+            loop = node.loop
+        log.info(
+            "lecteur",
+            extra={"component": player.id, "action": node.action, "video": video.id},
+        )
+        await self._ha.play_video(player.script, video.media, loop)
+        if node.wait_for_end and video.duration_s is not None:
+            await asyncio.sleep(video.duration_s)
+
+    async def _home_assistant(self, node: LightNode | SwitchNode | PlayerNode) -> None:
+        if isinstance(node, PlayerNode):
+            await self._player(node)
+        elif isinstance(node, LightNode):
             light = next((x for x in self._config.lights if x.id == node.target), None)
             if light is None:
                 raise ExecutionError(f"lumière inconnue : {node.target}")

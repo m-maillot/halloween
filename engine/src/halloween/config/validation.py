@@ -14,7 +14,7 @@ def validate_config(config: AppConfig) -> list[Issue]:
     # Les blocs désignent leur cible par un seul champ `target` : les ids sont uniques tous types
     # confondus.
     by_id: dict[str, list[str]] = defaultdict(list)
-    for kind in ("relays", "buttons", "lights", "switches"):
+    for kind in ("relays", "buttons", "lights", "switches", "players"):
         for component in getattr(config, kind):
             by_id[component.id].append(kind)
     for component_id, kinds in by_id.items():

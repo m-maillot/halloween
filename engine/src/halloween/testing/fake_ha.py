@@ -138,6 +138,11 @@ SAMPLE_STATES: list[dict[str, Any]] = [
         },
     },
     {"entity_id": "switch.prise_salon", "state": "off", "attributes": {"friendly_name": "Prise"}},
+    {
+        "entity_id": "script.lire_video_shield",
+        "state": "off",
+        "attributes": {"friendly_name": "Lire une vidéo sur la Shield"},
+    },
 ]
 
 

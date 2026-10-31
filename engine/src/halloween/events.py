@@ -53,11 +53,11 @@ class NodeFinishedEvent(_Base):
 
 
 class ComponentChangedEvent(_Base):
-    """Un composant a changé d'état (`kind` relay / light / switch), ou le catalogue a été modifié
-    (`kind: "catalog"`, sans `component_id`) : l'interface relit alors `/api/devices`."""
+    """Un composant a changé d'état (`kind` relay / light / switch / player), ou le catalogue a été
+    modifié (`kind: "catalog"`, sans `component_id`) : l'interface relit alors `/api/devices`."""
 
     type: Literal["component_changed"] = "component_changed"
-    kind: Literal["relay", "light", "switch", "catalog"]
+    kind: Literal["relay", "light", "switch", "player", "catalog"]
     component_id: str | None = None
     state: Literal["on", "off"] | None = None
     details: dict[str, Any] = {}

@@ -24,6 +24,7 @@ import {
   Music,
   Plug,
   Power,
+  Projector,
   Radar,
   Siren,
   Skull,
@@ -37,7 +38,7 @@ import {
 
 import { GAME_ICONS } from "./gameIconsData";
 
-export type Kind = "relays" | "buttons" | "lights" | "switches";
+export type Kind = "relays" | "buttons" | "lights" | "switches" | "players";
 
 /** Bibliothèque intégrée : `image: "builtin:<nom>"`. Icônes Lucide (licence ISC, sans attribution). */
 /** Origine de chaque icône (licence et auteurs dans `about/credits.ts`). */
@@ -83,6 +84,7 @@ export const BUILTIN_ICONS: Record<string, { label: string; icon: IconComponent;
   power: { label: "Alimentation", icon: Power, source: "feather" },
   button: { label: "Bouton", icon: CircleDot },
   motion: { label: "Détecteur de mouvement", icon: Radar },
+  video: { label: "Projecteur vidéo", icon: Projector },
   sparkles: { label: "Étincelles magie", icon: Sparkles },
   wand: { label: "Baguette", icon: WandSparkles },
   candy: { label: "Bonbon", icon: Candy },
@@ -113,6 +115,7 @@ export const DEFAULT_ICON: Record<Kind, string> = {
   buttons: "button",
   lights: "light",
   switches: "plug",
+  players: "video",
 };
 
 export const KIND_LABEL: Record<Kind, string> = {
@@ -120,6 +123,7 @@ export const KIND_LABEL: Record<Kind, string> = {
   buttons: "Boutons",
   lights: "Lumières",
   switches: "Interrupteurs",
+  players: "Vidéos",
 };
 
 /** Image d'un composant : fichier téléversé, icône intégrée, sinon icône par défaut du type. */

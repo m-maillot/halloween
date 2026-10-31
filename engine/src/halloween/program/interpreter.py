@@ -22,6 +22,7 @@ from halloween.program.models import (
     LogNode,
     Node,
     ParallelNode,
+    PlayerNode,
     Program,
     RandomChoiceNode,
     RelayNode,
@@ -50,7 +51,7 @@ class NodeEvent:
 
 class ActionRunner(ABC):
     @abstractmethod
-    async def execute(self, node: RelayNode | LightNode | SwitchNode) -> None:
+    async def execute(self, node: RelayNode | LightNode | SwitchNode | PlayerNode) -> None:
         """Exécute un bloc d'action."""
 
 
@@ -133,7 +134,7 @@ class Interpreter:
                 await self._call(node, scope)
             case LogNode():
                 log.info(node.message)
-            case RelayNode() | LightNode() | SwitchNode():
+            case RelayNode() | LightNode() | SwitchNode() | PlayerNode():
                 await self._ctx.actions.execute(node)
 
     async def _repeat(self, node: RepeatNode, scope: _Scope) -> None:

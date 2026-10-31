@@ -143,14 +143,20 @@ def simulate(
 def _timeline(recorder: Recorder, config: AppConfig) -> list[TimelineEntry]:
     """Remplace les `entity_id` par l'id du composant et `turn_on/off` par `on/off`."""
     component_of = {x.entity_id: x.id for x in (*config.lights, *config.switches)}
+    component_of.update({p.script: p.id for p in config.players})
+    video_of = {v.media: (p, v) for p in config.players for v in p.videos}
     result = []
     for entry in recorder.entries:
         action = entry.action
-        if "." in action:  # appel de service Home Assistant
+        data = entry.data
+        if action.startswith("script."):
+            # Lecteur : la vidéo de repos (écran noir) est « éteint », toute autre « allumé ».
+            player, video = video_of.get(data.get("video"), (None, None))
+            action = "off" if video and video.id == player.rest_video else "on"
+            data = {"video": video.id if video else data.get("video"), "loop": data.get("boucle")}
+        elif "." in action:  # appel de service Home Assistant
             action = "on" if action.endswith("turn_on") else "off"
         result.append(
-            TimelineEntry(
-                entry.t, component_of.get(entry.component, entry.component), action, entry.data
-            )
+            TimelineEntry(entry.t, component_of.get(entry.component, entry.component), action, data)
         )
     return result

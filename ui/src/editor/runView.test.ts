@@ -68,7 +68,7 @@ test("un nouveau run du même scénario remplace l'affichage du précédent", ()
 
 // ------------------------------------------------------------------ blocs
 
-const devices = { relays: [{ id: "orage", name: "Orage", pin: 22, mode: "latched" }, { id: "fantome", name: "Fantôme", pin: 18, mode: "latched" }], buttons: [], lights: [], switches: [], rest_state: {} } as unknown as Devices;
+const devices = { relays: [{ id: "orage", name: "Orage", pin: 22, mode: "latched" }, { id: "fantome", name: "Fantôme", pin: 18, mode: "latched" }], buttons: [], lights: [], switches: [], players: [], rest_state: {} } as unknown as Devices;
 const two: Program = {
   schema: 1, id: "scene", name: "S", scripts: [
     { id: "s1", hat: { type: "start" }, root: { id: "r1", type: "sequence", children: [{ id: "a", type: "relay", target: "orage", state: "on" }, { id: "b", type: "relay", target: "orage", state: "off" }] } },

@@ -6,7 +6,15 @@ export type Existing =
   | Devices["relays"][number]
   | Devices["buttons"][number]
   | Devices["lights"][number]
-  | Devices["switches"][number];
+  | Devices["switches"][number]
+  | Devices["players"][number];
+
+export interface VideoDraft {
+  id: string;
+  name: string;
+  source: string;
+  duration_s: string;
+}
 
 export interface Draft {
   kind: "button" | "motion";
@@ -27,12 +35,14 @@ export interface Draft {
   supports_color: boolean;
   supports_brightness: boolean;
   supports_transition: boolean;
+  videos: VideoDraft[];
+  rest_video: string;
 }
 
 const text = (value: number | null | undefined, fallback = "") => (value == null ? fallback : String(value));
 
 export function draftOf(existing?: Existing): Draft {
-  const e = (existing ?? {}) as Partial<Record<keyof Draft, unknown>>;
+  const e = (existing ?? {}) as Partial<Record<keyof Draft | "script", unknown>>;
   return {
     kind: (e.kind as Draft["kind"]) ?? "button",
     name: (e.name as string) ?? "",
@@ -48,10 +58,18 @@ export function draftOf(existing?: Existing): Draft {
     long_press_ms: text(e.long_press_ms as number | undefined, "800"),
     double_press_ms: text(e.double_press_ms as number | undefined, "400"),
     warmup_s: text(e.warmup_s as number | undefined, "60"),
-    entity_id: (e.entity_id as string) ?? "",
+    // Un lecteur désigne un script Home Assistant : même champ de saisie qu'une entité.
+    entity_id: (e.entity_id as string) ?? (e.script as string) ?? "",
     supports_color: Boolean(e.supports_color),
     supports_brightness: Boolean(e.supports_brightness),
     supports_transition: Boolean(e.supports_transition),
+    videos: ((e.videos as Devices["players"][number]["videos"] | undefined) ?? []).map((v) => ({
+      id: v.id,
+      name: v.name,
+      source: v.source,
+      duration_s: text(v.duration_s),
+    })),
+    rest_video: (e.rest_video as string | null | undefined) ?? "",
   };
 }
 
@@ -92,7 +110,48 @@ export function bodyOf(kind: Kind, draft: Draft): object {
       };
     case "switches":
       return { ...common, entity_id: draft.entity_id.trim() };
+    case "players": {
+      const taken = new Set(draft.videos.map((v) => v.id).filter(Boolean));
+      // Un identifiant ne change jamais une fois attribué (les scénarios s'y réfèrent).
+      const ids = draft.videos.map((video) => {
+        const id = video.id || uniqueId(video.name, taken);
+        taken.add(id);
+        return id;
+      });
+      return {
+        ...common,
+        script: draft.entity_id.trim(),
+        videos: draft.videos.map((video, i) => ({
+          id: ids[i],
+          name: video.name.trim(),
+          source: video.source.trim(),
+          duration_s: num(video.duration_s),
+        })),
+        rest_video: restKey(draft.rest_video, ids) || null,
+      };
+    }
   }
+}
+
+/** Vidéo de repos : un identifiant, ou `#<rang>` tant que la vidéo n'est pas enregistrée. */
+export const pendingKey = (index: number) => `#${index}`;
+function restKey(value: string, ids: string[]): string {
+  return value.startsWith("#") ? (ids[Number(value.slice(1))] ?? "") : value;
+}
+
+/** Identifiant technique tiré du nom : minuscules sans accents, tirets, unique parmi `taken`. */
+export function uniqueId(name: string, taken: Set<string>): string {
+  const base =
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 56) || "video";
+  let candidate = base;
+  for (let n = 2; taken.has(candidate); n++) candidate = `${base}-${n}`;
+  return candidate;
 }
 
 /** Broches BCM déjà prises par un autre composant (relais ou bouton) : nom du propriétaire. */

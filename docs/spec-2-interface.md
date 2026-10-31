@@ -40,7 +40,7 @@ Barre latérale (menu inférieur sur mobile) avec 6 entrées, et un bandeau perm
 | **Tableau de bord** | état en direct, lancement rapide, test des composants |
 | **Scénarios** | liste + éditeur de blocs |
 | **Déclencheurs** | boutons/planning → scénarios |
-| **Composants** | relais, boutons, lights, switches |
+| **Composants** | relais, boutons, lights, switches, lecteurs de vidéos |
 | **Réglages** | connexion Home Assistant, jeton moteur, état de repos |
 
 **Bandeau permanent** :
@@ -54,7 +54,7 @@ Barre latérale (menu inférieur sur mobile) avec 6 entrées, et un bandeau perm
 ### 4.1 Tableau de bord
 
 - Une **tuile par composant** (image + nom + état : allumé/éteint, couleur de la light).
-- Un clic sur une tuile ouvre un **test manuel** : relais on/off, light on/off avec sélecteur de couleur / luminosité / transition selon ses capacités, switch on/off (`POST /components/{type}/{id}/test`).
+- Un clic sur une tuile ouvre un **test manuel** : relais on/off, light on/off avec sélecteur de couleur / luminosité / transition selon ses capacités, switch on/off, lecteur : choix de la vidéo (en boucle ou non) et retour à l'écran noir (`POST /components/{type}/{id}/test`). Une tuile de lecteur n'a pas d'état : « Écran noir » en un clic, « Vidéos… » pour choisir.
 - Liste des scénarios avec bouton **Lancer** ; chaque scénario en cours affiche une barre de progression (durée écoulée / `max_duration_s`, ou « en continu » s'il n'a pas de limite) et un bouton d'arrêt individuel. Plusieurs scénarios peuvent tourner en même temps.
 - Indicateur lorsque l'on appuie sur un bouton physique (`button_event`), utile pour vérifier le câblage.
 
@@ -76,6 +76,7 @@ Une icône par défaut est attribuée selon le type de composant tant qu'aucune 
 | Bouton | pin, `pull`, anti-rebond, seuil d'appui long | bouton **Tester** : « appuyez sur le bouton », affiche l'événement reçu |
 | Light | entité HA, cases *couleur*, *luminosité*, *transition* | entité choisie dans une liste issue de `GET /ha/entities?domain=light` |
 | Switch | entité HA | liste issue de `GET /ha/entities?domain=switch` |
+| Lecteur vidéo | script HA, liste de vidéos (nom, fichier, durée facultative), vidéo de repos | script choisi dans `GET /ha/entities?domain=script` ; bouton **Tester** : jouer une vidéo (en boucle ou non), écran noir |
 
 Règles :
 - l'`id` technique est affiché en lecture seule après création ;
@@ -158,6 +159,7 @@ Catégories colorées. Les blocs de composants sont **générés à partir de `G
 | **Relais** | un bloc par relais (image + nom) |
 | **Lumières** | un bloc par light |
 | **Interrupteurs** | un bloc par switch |
+| **Vidéos** | deux blocs par lecteur : « jouer une vidéo » et « revenir à l'écran noir » (si le lecteur a une vidéo de repos) |
 | **Boutons** | condition « bouton [x] a reçu [événement] » |
 | **Divers** | journaliser un message |
 
@@ -167,6 +169,7 @@ Catégories colorées. Les blocs de composants sont **générés à partir de `G
 - **Relais `push`** : `[image] Fantôme  déclencher` + case « attendre la fin » (visible seulement si `animation_s` est défini).
 - **Light** : `[image] Bandeau  ▾ allumer | éteindre`, puis champs facultatifs affichés **uniquement selon les capacités** : sélecteur de couleur, curseur de luminosité (0-100 %, converti en 0-255), durée de transition. Un bouton ⚙ ajoute/retire les paramètres facultatifs (non cochés = pas envoyés).
 - **Switch** : `[image] Prise  ▾ allumer | éteindre`.
+- **Lecteur** : `[image] Rétroprojecteur  ▾ jouer | revenir à l'écran noir`, puis pour « jouer » : vidéo, cases « en boucle » et « attendre la fin ».
 - Option « sans attendre HA » (`fire_and_forget`) et « en cas d'erreur : continuer / arrêter » dans un menu ⚙ du bloc, masqué par défaut.
 - Les blocs affichent l'image du composant en petit (24 px) et ont la couleur de leur catégorie.
 
@@ -182,7 +185,7 @@ Catégories colorées. Les blocs de composants sont **générés à partir de `G
 | Attendre jusqu'à | `wait_until` |
 | Choix aléatoire | `random_choice` |
 | Appeler un scénario | `call` |
-| Bloc relais / light / switch | `relay` / `light` / `switch` |
+| Bloc relais / light / switch / lecteur | `relay` / `light` / `switch` / `player` |
 | Journaliser | `log` |
 
 Règles :

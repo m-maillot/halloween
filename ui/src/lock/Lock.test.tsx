@@ -12,7 +12,7 @@ let calls: Call[];
 let status: typeof STATUS & Json;
 let respond: (call: Call) => Response | object | undefined;
 
-const devices = { relays: [], buttons: [], lights: [], switches: [], rest_state: {} };
+const devices = { relays: [], buttons: [], lights: [], switches: [], players: [], rest_state: {} };
 
 beforeEach(() => {
   localStorage.clear();

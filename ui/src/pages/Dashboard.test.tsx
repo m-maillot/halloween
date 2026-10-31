@@ -26,7 +26,7 @@ beforeEach(() => {
     ],
     buttons: [{ id: "bp", name: "Bouton principal", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 400 }],
     lights: [{ id: "bandeau", name: "Bandeau", entity_id: "light.bandeau", supports_color: true, supports_brightness: true, supports_transition: false }],
-    switches: [{ id: "guirlande", name: "Guirlande", entity_id: "switch.guirlande" }],
+    switches: [{ id: "guirlande", name: "Guirlande", entity_id: "switch.guirlande" }], players: [],
     rest_state: {},
   };
   programs = [
@@ -220,4 +220,28 @@ test("un changement de scénarios en cours relit la liste des programmes", async
   act(() => FakeWebSocket.emit({ type: "run_ended", run_id: "x", program_id: "scene", outcome: "completed" }));
   await waitFor(() => expect(screen.getByLabelText("Nouveau")).toBeInTheDocument());
   expect(calls.filter((c) => c.path === "/api/programs").length).toBeGreaterThan(before);
+});
+
+test("un lecteur vidéo : « Écran noir » en un clic, « Vidéos… » ouvre le choix de la vidéo", async () => {
+  (devices.players as Json[]).push({
+    id: "retro",
+    name: "Rétroprojecteur",
+    image: null,
+    image_url: null,
+    script: "script.lire_video_shield",
+    rest_video: "noir",
+    videos: [
+      { id: "noir", name: "Écran noir", source: "black_screen.mp4", duration_s: 10 },
+      { id: "fete", name: "Fête", source: "halloween_video.mp4", duration_s: 21 },
+    ],
+  });
+  const user = await openApp();
+  expect(within(tile("Rétroprojecteur")).queryByText(/Allumé|Éteint|État inconnu/)).toBeNull();
+  await user.click(within(tile("Rétroprojecteur")).getByRole("button", { name: "Écran noir" }));
+  await user.click(within(tile("Rétroprojecteur")).getByRole("button", { name: "Vidéos…" }));
+  const dialog = screen.getByRole("dialog", { name: "Réglages de Rétroprojecteur" });
+  await user.selectOptions(within(dialog).getByLabelText("Vidéo"), "Fête");
+  await user.click(within(dialog).getByRole("button", { name: "Jouer" }));
+  const sent = calls.filter((c) => c.path === "/api/components/players/retro/test").map((c) => (c.body as Json).action);
+  expect(sent).toEqual(["rest", "play"]);
 });

@@ -78,6 +78,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/components/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Components */
+        get: operations["list_players"];
+        put?: never;
+        /** Create Component */
+        post: operations["create_player"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/components/players/{component_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Component */
+        get: operations["get_player"];
+        /** Update Component */
+        put: operations["update_player"];
+        post?: never;
+        /** Delete Component */
+        delete: operations["delete_player"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/components/relays": {
         parameters: {
             query?: never;
@@ -163,7 +200,7 @@ export interface paths {
         put?: never;
         /**
          * Test Component
-         * @description Commande un composant à la main : relais on/off/impulsion, lumière, interrupteur, appui.
+         * @description Commande un composant à la main : relais, lumière, interrupteur, lecteur, appui.
          */
         post: operations["test_component"];
         delete?: never;
@@ -266,7 +303,7 @@ export interface paths {
         };
         /**
          * List Ha Entities
-         * @description Entités de Home Assistant, à proposer dans les formulaires de lumières et d'interrupteurs.
+         * @description Entités de Home Assistant à proposer dans les formulaires (lumières, interrupteurs…).
          */
         get: operations["list_ha_entities"];
         put?: never;
@@ -796,7 +833,7 @@ export interface components {
         /** Choice */
         Choice: {
             /** Child */
-            child: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"];
+            child: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"];
             /**
              * Weight
              * @default 1
@@ -810,8 +847,8 @@ export interface components {
         };
         /**
          * ComponentChangedEvent
-         * @description Un composant a changé d'état (`kind` relay / light / switch), ou le catalogue a été modifié
-         *     (`kind: "catalog"`, sans `component_id`) : l'interface relit alors `/api/devices`.
+         * @description Un composant a changé d'état (`kind` relay / light / switch / player), ou le catalogue a été
+         *     modifié (`kind: "catalog"`, sans `component_id`) : l'interface relit alors `/api/devices`.
          */
         ComponentChangedEvent: {
             /**
@@ -830,7 +867,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "relay" | "light" | "switch" | "catalog";
+            kind: "relay" | "light" | "switch" | "player" | "catalog";
             /**
              * State
              * @default null
@@ -853,7 +890,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "on" | "off" | "trigger" | "press";
+            action: "on" | "off" | "trigger" | "press" | "play" | "rest";
             /** Brightness */
             brightness?: number | null;
             /**
@@ -862,6 +899,11 @@ export interface components {
              * @enum {string}
              */
             event: "short" | "long" | "double" | "motion";
+            /**
+             * Loop
+             * @default false
+             */
+            loop: boolean;
             /** Rgb Color */
             rgb_color?: [
                 number,
@@ -870,6 +912,8 @@ export interface components {
             ] | null;
             /** Transition */
             transition?: number | null;
+            /** Video */
+            video?: string | null;
         };
         /**
          * Devices
@@ -880,6 +924,8 @@ export interface components {
             buttons: components["schemas"]["ButtonOut"][];
             /** Lights */
             lights: components["schemas"]["LightOut"][];
+            /** Players */
+            players: components["schemas"]["PlayerOut"][];
             /** Relays */
             relays: components["schemas"]["RelayOut"][];
             /** Rest State */
@@ -1042,11 +1088,11 @@ export interface components {
             /** Condition */
             condition: components["schemas"]["ButtonCondition"] | components["schemas"]["RelayIsCondition"] | components["schemas"]["RandomCondition"];
             /** Else */
-            else?: (components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"]) | null;
+            else?: (components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"]) | null;
             /** Id */
             id: string;
             /** Then */
-            then: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"];
+            then: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1263,7 +1309,7 @@ export interface components {
         /** ParallelNode */
         ParallelNode: {
             /** Children */
-            children: (components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"])[];
+            children: (components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"])[];
             /** Id */
             id: string;
             /**
@@ -1277,6 +1323,87 @@ export interface components {
              * @enum {string}
              */
             until: "all" | "first";
+        };
+        /** PlayerIn */
+        PlayerIn: {
+            /** Id */
+            id?: string | null;
+            /** Image */
+            image?: string | null;
+            /** Name */
+            name: string;
+            /** Rest Video */
+            rest_video?: string | null;
+            /** Script */
+            script: string;
+            /** Videos */
+            videos: components["schemas"]["Video"][];
+        };
+        /** PlayerNode */
+        PlayerNode: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "play" | "rest";
+            /**
+             * Fire And Forget
+             * @default false
+             */
+            fire_and_forget: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Loop
+             * @default false
+             */
+            loop: boolean;
+            /**
+             * On Error
+             * @default continue
+             * @enum {string}
+             */
+            on_error: "continue" | "abort";
+            /** Target */
+            target: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "player";
+            /** Video */
+            video?: string | null;
+            /**
+             * Wait For End
+             * @default false
+             */
+            wait_for_end: boolean;
+        };
+        /** PlayerOut */
+        PlayerOut: {
+            /** Id */
+            id: string;
+            /** Image */
+            image?: string | null;
+            /** Image Url */
+            image_url?: string | null;
+            /** Name */
+            name: string;
+            /** Rest Video */
+            rest_video?: string | null;
+            /** Script */
+            script: string;
+            /** Videos */
+            videos: components["schemas"]["Video"][];
+        };
+        /** PlayerResult */
+        PlayerResult: {
+            component: components["schemas"]["PlayerOut"];
+            /**
+             * Issues
+             * @default []
+             */
+            issues: components["schemas"]["IssueOut"][];
         };
         /**
          * ProblemOut
@@ -1507,7 +1634,7 @@ export interface components {
         /** RepeatNode */
         RepeatNode: {
             /** Child */
-            child: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"];
+            child: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"];
             /**
              * Forever
              * @default false
@@ -1654,12 +1781,12 @@ export interface components {
             /** Id */
             id: string;
             /** Root */
-            root: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"];
+            root: components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"];
         };
         /** SequenceNode */
         SequenceNode: {
             /** Children */
-            children: (components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"])[];
+            children: (components["schemas"]["SequenceNode"] | components["schemas"]["ParallelNode"] | components["schemas"]["RepeatNode"] | components["schemas"]["WaitNode"] | components["schemas"]["IfNode"] | components["schemas"]["WaitUntilNode"] | components["schemas"]["RandomChoiceNode"] | components["schemas"]["CallNode"] | components["schemas"]["LogNode"] | components["schemas"]["RelayNode"] | components["schemas"]["LightNode"] | components["schemas"]["SwitchNode"] | components["schemas"]["PlayerNode"])[];
             /** Id */
             id: string;
             /**
@@ -1903,6 +2030,17 @@ export interface components {
             issues: components["schemas"]["IssueOut"][];
             /** Valid */
             valid: boolean;
+        };
+        /** Video */
+        Video: {
+            /** Duration S */
+            duration_s?: number | null;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Source */
+            source: string;
         };
         /** WaitNode */
         WaitNode: {
@@ -2289,6 +2427,198 @@ export interface operations {
         };
     };
     delete_light: {
+        parameters: {
+            query?: {
+                /** @description Autorise l'arrêt des scénarios en cours si le changement l'exige. */
+                stop_runs?: boolean;
+            };
+            header?: never;
+            path: {
+                component_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Jeton d'API manquant ou invalide */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_players: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerOut"][];
+                };
+            };
+            /** @description Jeton d'API manquant ou invalide */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_player: {
+        parameters: {
+            query?: {
+                /** @description Autorise l'arrêt des scénarios en cours si le changement l'exige. */
+                stop_runs?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerResult"];
+                };
+            };
+            /** @description Jeton d'API manquant ou invalide */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_player: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerOut"];
+                };
+            };
+            /** @description Jeton d'API manquant ou invalide */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_player: {
+        parameters: {
+            query?: {
+                /** @description Autorise l'arrêt des scénarios en cours si le changement l'exige. */
+                stop_runs?: boolean;
+            };
+            header?: never;
+            path: {
+                component_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerResult"];
+                };
+            };
+            /** @description Jeton d'API manquant ou invalide */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_player: {
         parameters: {
             query?: {
                 /** @description Autorise l'arrêt des scénarios en cours si le changement l'exige. */
@@ -2716,7 +3046,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "relays" | "buttons" | "lights" | "switches";
+                kind: "relays" | "buttons" | "lights" | "switches" | "players";
                 component_id: string;
             };
             cookie?: never;
@@ -2968,7 +3298,7 @@ export interface operations {
     list_ha_entities: {
         parameters: {
             query?: {
-                domain?: ("light" | "switch") | null;
+                domain?: ("light" | "switch" | "script") | null;
             };
             header?: never;
             path?: never;

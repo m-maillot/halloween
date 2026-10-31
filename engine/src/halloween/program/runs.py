@@ -27,7 +27,14 @@ from halloween.log import get_logger, log_context
 from halloween.program.actions import DeviceActions
 from halloween.program.conditions import Conditions
 from halloween.program.interpreter import ActionRunner, Interpreter, NodeEvent, RunContext
-from halloween.program.models import ActionNode, LightNode, Program, RelayNode, SwitchNode
+from halloween.program.models import (
+    ActionNode,
+    LightNode,
+    PlayerNode,
+    Program,
+    RelayNode,
+    SwitchNode,
+)
 
 log = get_logger("runs")
 
@@ -108,7 +115,7 @@ class _RunActions(ActionRunner):
         self._manager = manager
         self._run = run
 
-    async def execute(self, node: RelayNode | LightNode | SwitchNode) -> None:
+    async def execute(self, node: RelayNode | LightNode | SwitchNode | PlayerNode) -> None:
         self._run.touched.add(node.target)
         self._manager._owner[node.target] = self._run.id
         await self._manager.actions.execute(node)
@@ -276,7 +283,8 @@ class RunManager:
             await self._relays.all_off()
         except Exception:
             log.exception("extinction des relais en échec")
-        failed = await self._reset_components(list(self._config.rest_state))
+        resting = [p.id for p in self._config.players if p.rest_video is not None]
+        failed = await self._reset_components([*self._config.rest_state, *resting])
         self._owner.clear()
         return failed
 
@@ -306,6 +314,12 @@ class RunManager:
         if relay is not None:
             if relay.mode is RelayMode.LATCHED:
                 await self._relays.set(relay.id, False)
+            return
+        player = next((p for p in self._config.players if p.id == component_id), None)
+        if player is not None:
+            video = player.video(player.rest_video) if player.rest_video else None
+            if video is not None:  # sans vidéo de repos, le lecteur n'est pas touché
+                await self._ha.play_video(player.script, video.media, True)
             return
         rest = self._config.rest_state.get(component_id)
         if rest is None:

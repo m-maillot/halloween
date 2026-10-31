@@ -13,7 +13,7 @@ let status: typeof STATUS & Json;
 let respond: (call: Call) => Response | object | undefined;
 
 const devices = {
-  relays: [], lights: [], switches: [], rest_state: {},
+  relays: [], lights: [], switches: [], players: [], rest_state: {},
   buttons: [{ id: "bouton_principal", name: "Bouton d'entrée", pin: 21, pull: "up", debounce_ms: 50, long_press_ms: 800, double_press_ms: 400 }],
 };
 const programs = [

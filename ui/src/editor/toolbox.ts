@@ -11,6 +11,14 @@ function tunedLights(lights: LightItem[] | undefined): Entry[] {
     .map((light) => ({ kind: "block", type: "hw_light", extraState: { target: light.id, tuned: true } }));
 }
 
+/** Deux blocs par lecteur : jouer une vidéo, et revenir à l'écran noir (vidéo de repos). */
+function playerBlocks(players: { id: string; rest_video?: string | null }[] | undefined): Entry[] {
+  return (players ?? []).flatMap((player) => [
+    { kind: "block", type: "hw_player", extraState: { target: player.id } } as Entry,
+    ...(player.rest_video ? [{ kind: "block", type: "hw_player", extraState: { target: player.id, rest: true } } as Entry] : []),
+  ]);
+}
+
 /** Palette : catégories colorées ; les blocs de composants viennent du catalogue du moteur. */
 export function buildToolbox(devices: Devices | null) {
   const entries = (type: string, items: { id: string }[] | undefined): Entry[] =>
@@ -44,6 +52,7 @@ export function buildToolbox(devices: Devices | null) {
       { kind: "category", name: "Relais", colour: "0", contents: entries("hw_relay", devices?.relays) },
       { kind: "category", name: "Lumières", colour: "48", contents: [...entries("hw_light", devices?.lights), ...tunedLights(devices?.lights)] },
       { kind: "category", name: "Interrupteurs", colour: "200", contents: entries("hw_switch", devices?.switches) },
+      { kind: "category", name: "Vidéos", colour: "160", contents: playerBlocks(devices?.players) },
       { kind: "category", name: "Divers", colour: "230", contents: [{ kind: "block", type: "hw_log" }] },
     ],
   };

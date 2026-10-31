@@ -262,3 +262,18 @@ def test_cli_run_without_token_falls_back_to_simulation(tmp_path, monkeypatch):
     cli.store.save_program(program_json())
     code, out = cli.run("run", "demo")
     assert code == 0 and "aucun jeton" in out and "[Home Assistant simulé]" in out
+
+
+def with_player(script: str) -> AppConfig:
+    raw = make_config().model_dump()
+    video = {"id": "noir", "name": "Noir", "source": "black_screen.mp4"}
+    raw["players"] = [{"id": "retro", "name": "Rétro", "script": script, "videos": [video]}]
+    return AppConfig.model_validate(raw)
+
+
+async def test_the_script_of_a_player_is_checked(ha):
+    code, out = await check(ha, with_player("script.lire_video_shield"))
+    assert code == 0 and "retro : script `script.lire_video_shield` existe" in out
+    code, out = await check(ha, with_player("script.lire_video_shiel"))
+    assert code == 1 and "`script.lire_video_shiel` introuvable" in out
+    assert "script.lire_video_shield" in out  # proposé parmi les noms proches

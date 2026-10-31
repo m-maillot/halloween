@@ -16,6 +16,7 @@ function lookup(devices: Devices | null, id: string): Known {
     ["relays", devices?.relays],
     ["lights", devices?.lights],
     ["switches", devices?.switches],
+    ["players", devices?.players],
   ];
   for (const [kind, items] of sources) {
     const hit = items?.find((i) => i.id === id);
@@ -27,14 +28,15 @@ function lookup(devices: Devices | null, id: string): Known {
 function barColour(known: Known, period: Period): string {
   const rgb = period.data.rgb_color as number[] | undefined;
   if (known.kind === "lights" && rgb) return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  if (known.kind === "players") return "#5fb48a";
   return known.kind === "lights" ? "#f2b84b" : known.kind === "switches" ? "#5aa9c6" : "#d9726f";
 }
 
-function label(name: string, period: Period): string {
+function label(name: string, period: Period, kind: Kind): string {
   const span = period.open
     ? `de ${formatSeconds(period.start)} jusqu'à la fin (jamais éteint)`
     : `de ${formatSeconds(period.start)} à ${formatSeconds(period.end)}`;
-  return `${name} : allumé ${span}`;
+  return kind === "players" ? `${name} : en lecture ${span}` : `${name} : allumé ${span}`;
 }
 
 /** Frise : une ligne par composant, une barre par période d'activation, axe en secondes. */
@@ -66,8 +68,8 @@ export function Frise({ result, devices }: { result: SimulationOut; devices: Dev
                       <span
                         key={i}
                         role="img"
-                        aria-label={label(known.name, period)}
-                        title={label(known.name, period)}
+                        aria-label={label(known.name, period, known.kind)}
+                        title={label(known.name, period, known.kind)}
                         className={period.open ? "frise__bar frise__bar--open" : "frise__bar"}
                         style={{ left: pct(period.start), width: `max(${((period.end - period.start) / duration) * 100}%, 3px)`, background: barColour(known, period) }}
                       />

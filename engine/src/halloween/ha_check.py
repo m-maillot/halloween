@@ -210,6 +210,17 @@ async def run_ha_check(
             compare_capabilities(component, infer_capabilities(entity.attributes), report)
             present.append((component, entity))
 
+    for player in config.players:
+        script = entities.get(player.script)
+        if script is None:
+            close = difflib.get_close_matches(player.script, list(entities), n=3)
+            report.fail(
+                f"{player.id} : script `{player.script}` introuvable"
+                + (f" (proches : {', '.join(close)})" if close else "")
+            )
+        else:
+            report.ok(f"{player.id} : script `{player.script}` existe")
+
     if active:
         report.info("Test actif (les lumières vont changer ; leur état est restauré ensuite)")
         all_latencies: list[float] = []

@@ -14,7 +14,7 @@ Piloter la décoration d'Halloween par des **scénarios** (séquences d'actions 
 - Home Assistant (HA) via son API REST : lumières (bandeau Hue, guirlande Twinkly…) et interrupteurs.
 
 Le **moteur** tourne sur le Pi. Il gère :
-1. un **catalogue de composants** (relais, boutons, lights, switches) configurable, chacun avec nom et image ;
+1. un **catalogue de composants** (relais, boutons, lights, switches, lecteurs de vidéos) configurable, chacun avec nom et image ;
 2. des **programmes** (JSON produit par l'éditeur) qui utilisent ces composants ;
 3. des **déclencheurs** (bouton, planning, API) qui lancent un programme ;
 4. l'**exécution** et l'état temps réel.
@@ -139,6 +139,20 @@ Corps envoyé, par exemple :
 
 Appel HA : `POST /api/services/switch/turn_on` ou `turn_off`. Champs : `entity_id` uniquement (en plus des champs communs).
 
+### 4.5 bis Lecteurs de vidéos
+
+Un **lecteur** joue des vidéos sur un écran ou un rétroprojecteur (Nvidia Shield pilotée par Kodi, par exemple). Le moteur ne parle pas à la Shield : il appelle un **script Home Assistant** qui s'en charge.
+
+| Champ | Rôle |
+|---|---|
+| `script` | script HA à appeler, `script.<nom>` |
+| `videos` | liste de vidéos : `id`, `name`, `source`, `duration_s` (facultative) |
+| `rest_video` | `id` de la vidéo de repos, jouée **en boucle** (écran noir) ; absente : le lecteur n'est pas touché au repos |
+
+Appel HA : `POST /api/services/script/<nom>` avec le corps `{"video": "<source>", "boucle": true|false}`. Le script doit donc déclarer les champs `video` et `boucle` (voir [lecteur-video.md](lecteur-video.md)). La `source` est envoyée telle quelle, sauf un simple nom de fichier (sans `/` ni `://`) qui désigne le dossier média local de HA : `media-source://media_source/local/<fichier>`.
+
+`duration_s` n'est jamais lue chez Kodi : elle sert uniquement à « attendre la fin » d'une vidéo dans un scénario (le moteur attend cette durée après que HA a répondu).
+
 ### 4.6 Validation de la configuration
 
 - Pins : chaque GPIO n'est utilisé qu'une fois, dans la liste des GPIO utilisables du Pi ; une pin ne peut pas être à la fois entrée et sortie.
@@ -193,16 +207,18 @@ Conditions v1 : `button` (`id`, `event`), `relay_is` (`id`, `on`/`off`, relais `
 | `relay` | relais `push` | `target`, `action: "trigger"`, `wait_for_end?` (nécessite `animation_s`) |
 | `light` | light | `target`, `state`: `on` / `off`, puis selon capacités : `rgb_color`, `brightness`, `transition` |
 | `switch` | switch | `target`, `state`: `on` / `off` |
+| `player` | lecteur | `target`, `action: "play"` + `video`, `loop?`, `wait_for_end?` (nécessite `duration_s`) ; ou `action: "rest"` (vidéo de repos, en boucle) |
 | `log` | — | `message` |
 
 Règles :
 - le bloc `relay` est validé selon le **mode** du relais cible (`on`/`off` interdit sur un `push`, `trigger` interdit sur un `latched`) ;
 - par défaut une action HA **attend la réponse** de HA avant de continuer ; `fire_and_forget: true` évite de bloquer le rythme sur la latence ;
-- un bloc `light` en `off` ignore couleur / luminosité.
+- un bloc `light` en `off` ignore couleur / luminosité ;
+- un bloc `player` est validé selon le lecteur : vidéo inconnue, « attendre la fin » sans durée, ou `rest` sans vidéo de repos sont des erreurs ; `loop` et `wait_for_end` s'excluent (une boucle ne finit pas).
 
 ### 5.3 État de repos
 
-Défini dans la config (`rest_state`) : relais `latched` sur OFF, lights / switches dans un état nominal (par composant : on/off + couleur/luminosité). Appliqué au démarrage du moteur, à l'arrêt manuel global et en fin de programme (`on_end: reset`). Les relais `push` ne reçoivent aucune impulsion à ce moment.
+Défini dans la config (`rest_state`) : relais `latched` sur OFF, lights / switches dans un état nominal (par composant : on/off + couleur/luminosité), lecteurs sur leur `rest_video` (en boucle). Appliqué au démarrage du moteur, à l'arrêt manuel global et en fin de programme (`on_end: reset`). Les relais `push` ne reçoivent aucune impulsion à ce moment.
 
 Avec plusieurs programmes simultanés, un `reset` de fin de programme ne remet à l'état de repos **que les composants que ce programme a lui-même commandés et dont il est le dernier à avoir modifié l'état** ; un composant repris depuis par un autre programme encore actif n'est pas touché.
 
@@ -286,8 +302,8 @@ Base `http://<pi>:8080/api`, jeton statique `Authorization: Bearer`, réseau loc
 |---|---|---|
 | GET / PUT | `/config/home-assistant` | URL + jeton (jeton masqué en lecture) |
 | POST | `/config/home-assistant/test` | teste la connexion |
-| GET | `/ha/entities?domain=light\|switch` | liste les entités HA pour les proposer dans l'UI |
-| GET / POST | `/components/{relays\|buttons\|lights\|switches}` | lister / créer |
+| GET | `/ha/entities?domain=light\|switch\|script` | liste les entités HA pour les proposer dans l'UI |
+| GET / POST | `/components/{relays\|buttons\|lights\|switches\|players}` | lister / créer |
 | GET / PUT / DELETE | `/components/{type}/{id}` | lire / modifier / supprimer (suppression refusée si utilisé) |
 | POST | `/components/{type}/{id}/test` | test manuel : impulsion, on/off, appui simulé |
 | POST | `/images` | téléversement (png/jpg/webp, taille limitée, redimensionné) |
@@ -326,7 +342,7 @@ Précisions (implémentation) :
 | `run_started` | `run_id`, `program_id` | un programme démarre |
 | `node_started` / `node_finished` | `run_id`, `program_id`, `script_id`, `node_id` | début / fin de chaque bloc (surlignage) |
 | `run_ended` | `run_id`, `program_id`, `outcome`, `error?` | fin d'un run (`completed`, `stopped`, `failed`, `timeout`) |
-| `component_changed` | `kind` (`relay`, `light`, `switch`, `catalog`), `component_id?`, `state?`, `details` | un composant change d'état ; `catalog` : la configuration a changé, relire `/api/devices` |
+| `component_changed` | `kind` (`relay`, `light`, `switch`, `player`, `catalog`), `component_id?`, `state?`, `details` | un composant change d'état (lecteur : `on` pour une vidéo, `off` pour la vidéo de repos, `details.video`) ; `catalog` : la configuration a changé, relire `/api/devices` |
 | `button_event` | `button_id`, `event` (`short`, `long`, `double`) | appui reconnu sur un bouton |
 | `error` | `source` (`run`, `action`, `startup`), `message`, `run_id?`, `node_id?`, `component_id?` | échec d'une action ou d'un run |
 | `lock_changed` | `locked` | verrouillage (lot 6) |

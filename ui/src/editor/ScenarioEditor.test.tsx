@@ -31,7 +31,7 @@ vi.mock("./BlocklyEditor", async () => {
 const ws = () => shared.ws as Blockly.Workspace;
 const devices = {
   relays: [{ id: "orage", name: "Orage", pin: 22, mode: "latched", active_low: false }],
-  buttons: [], lights: [], switches: [], rest_state: {},
+  buttons: [], lights: [], switches: [], players: [], rest_state: {},
 };
 const relay = (id: string, state: string) => ({ id, type: "relay", target: "orage", state });
 const program = (children: object[], extra: object = {}) => ({

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { unwrap } from "../api/errors";
-import { Button, Field } from "../components/ui";
+import { Button, CheckField, Field, SelectField } from "../components/ui";
 import { useToasts } from "../components/Toasts";
 import { useEngine } from "../engine/EngineProvider";
 import { PRESS_TEXT } from "../triggers/model";
@@ -25,6 +25,9 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
   const [color, setColor] = useState("#ff8a2b");
   const [brightness, setBrightness] = useState("255");
   const [transition, setTransition] = useState("");
+  const player = kind === "players" ? (item as { videos: { id: string; name: string }[]; rest_video?: string | null }) : null;
+  const [video, setVideo] = useState(player?.videos[0]?.id ?? "");
+  const [loop, setLoop] = useState(false);
 
   // Bouton physique : on écoute le prochain appui (vérification du câblage).
   useEffect(() => {
@@ -64,7 +67,28 @@ export function TestPanel({ kind, item }: { kind: Kind; item: Existing }) {
     <section className="test-panel" aria-label="Test manuel">
       <h3>Tester</h3>
       <span className="field__hint">Teste la version enregistrée du composant.</span>
-      {kind === "buttons" ? (
+      {player ? (
+        <>
+          <SelectField label="Vidéo" value={video} onChange={(e) => setVideo(e.target.value)}>
+            {player.videos.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </SelectField>
+          <CheckField label="En boucle" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
+          <div className="form-actions">
+            <Button disabled={busy || locked || !video} onClick={() => void run({ action: "play", video, loop })}>
+              Jouer
+            </Button>
+            {player.rest_video && (
+              <Button disabled={busy || locked} onClick={() => void run({ action: "rest" })}>
+                Écran noir
+              </Button>
+            )}
+          </div>
+        </>
+      ) : kind === "buttons" ? (
         <>
           <Button onClick={() => { setResult(null); setListening(true); }} disabled={listening}>
             {listening ? (motion ? "Passez devant le capteur…" : "Appuyez sur le bouton…") : motion ? "Écouter un mouvement" : "Écouter un appui"}
