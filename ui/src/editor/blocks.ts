@@ -93,6 +93,9 @@ function shapePlayer(this: ComponentBlock) {
   for (const name of ["HEAD", "PLAY", "OPTS"]) if (this.getInput(name)) this.removeInput(name);
 
   const found = findPlayer(this.target_);
+  // Vidéo retirée du lecteur pendant que le bloc existe : on la garde plutôt que de passer en silence à une autre.
+  const chosen = keep.VIDEO;
+  if (typeof chosen === "string" && chosen && !found?.videos.some((video) => video.id === chosen)) this.fallbackVideo_ = chosen;
   this.setColour(found ? HUE.player : NOT_FOUND_COLOUR);
   this.setWarningText(found ? null : `Composant introuvable : ${this.target_}`);
 

@@ -1,7 +1,7 @@
 import * as Blockly from "blockly/core";
 import { beforeAll, beforeEach, expect, test } from "vitest";
 import type { Devices } from "../catalog/CatalogProvider";
-import { registerBlocks } from "./blocks";
+import { refreshComponentBlocks, registerBlocks } from "./blocks";
 import { setCatalog } from "./catalog";
 import { buildToolbox } from "./toolbox";
 import { loadProgram, orphanStacks, workspaceToProgram, type Program } from "./serialize";
@@ -412,4 +412,15 @@ test("un bloc « jouer » neuf propose une vraie vidéo plutôt que l'écran noi
   const block = ws.newBlock("hw_player");
   (block as unknown as { loadExtraState(s: object): void }).loadExtraState({ target: "retro" });
   expect(block.getFieldValue("VIDEO")).toBe("fete");
+});
+
+test("une vidéo retirée du catalogue pendant l'édition n'est pas remplacée en silence par une autre", () => {
+  loadProgram(ws, program([player("v1", { action: "play", video: "fete" })]));
+  const without = {
+    ...devices,
+    players: [{ ...devices.players[0], videos: devices.players[0].videos.filter((video) => video.id !== "fete") }],
+  } as unknown as Devices;
+  setCatalog(without);
+  refreshComponentBlocks(ws);
+  expect(workspaceToProgram(ws, meta).scripts[0].root).toMatchObject({ children: [{ video: "fete" }] });
 });
