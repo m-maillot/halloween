@@ -415,12 +415,15 @@ test("un bloc « jouer » neuf propose une vraie vidéo plutôt que l'écran noi
 });
 
 test("une vidéo retirée du catalogue pendant l'édition n'est pas remplacée en silence par une autre", () => {
-  loadProgram(ws, program([player("v1", { action: "play", video: "fete" })]));
+  // Bloc posé depuis la palette (il n'a pas été chargé d'un programme) : « Fête » est sa vidéo par défaut.
+  const block = ws.newBlock("hw_player");
+  (block as unknown as { loadExtraState(s: object): void }).loadExtraState({ target: "retro" });
+  expect(block.getFieldValue("VIDEO")).toBe("fete");
   const without = {
     ...devices,
     players: [{ ...devices.players[0], videos: devices.players[0].videos.filter((video) => video.id !== "fete") }],
   } as unknown as Devices;
   setCatalog(without);
   refreshComponentBlocks(ws);
-  expect(workspaceToProgram(ws, meta).scripts[0].root).toMatchObject({ children: [{ video: "fete" }] });
+  expect(block.getFieldValue("VIDEO")).toBe("fete");
 });
